@@ -35,7 +35,7 @@ public class MiniGameConfig extends Config {
 
 	public String menuItemDecorSymbol = "◆";
 
-	public boolean randomJoinBlockEnabled = true;
+	public boolean randomJoinBlockEnabled = false;
 	public int randomJoinBlockId = BlockIds.END_PORTAL;
 
 	public boolean enableHungerInGame = true;
@@ -43,7 +43,7 @@ public class MiniGameConfig extends Config {
 	public Vector3 lobbySpawn = new Vector3();
 	public Vector3 waitLobbySpawn = new Vector3();
 
-	public boolean lobbyHelixEnabled = true;
+	public boolean lobbyHelixEnabled = false;
 	public Vector3 lobbyHelixPos = new Vector3();
 	public int lobbyHelixSpawnPeriod = 100;
 	public String lobbyHelixColor = "GREEN";

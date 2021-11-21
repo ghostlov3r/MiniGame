@@ -8,6 +8,8 @@ import dev.ghostlov3r.beengine.form.CustomForm;
 import dev.ghostlov3r.beengine.form.Form;
 import dev.ghostlov3r.beengine.form.ModalForm;
 import dev.ghostlov3r.beengine.form.SimpleForm;
+import dev.ghostlov3r.beengine.form.element.Element;
+import dev.ghostlov3r.beengine.form.element.ElementToggle;
 import dev.ghostlov3r.beengine.item.Items;
 import dev.ghostlov3r.beengine.scheduler.Scheduler;
 import dev.ghostlov3r.beengine.utils.TextFormat;
@@ -20,10 +22,12 @@ import lombok.SneakyThrows;
 import lord.core.Lord;
 import lord.core.gamer.Gamer;
 import lord.core.util.LordCommand;
+import lord.core.util.LordNpc;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.stream.IntStream;
 
@@ -63,6 +67,28 @@ public class MiniGameCommand extends LordCommand {
 		form.button("Спираль", p -> {
 			spiralSettings((MGGamer) gamer);
 		});
+		form.button("Сущности входа", p -> {
+			showJoinEntities((MGGamer) p);
+		});
+		gamer.sendForm(form);
+	}
+
+	public void showJoinEntities (MGGamer gamer) {
+		SimpleForm form = Form.simple();
+		form.button("Создать", __ -> {
+			JoinGameNpc npc = gamer.createNpc(JoinGameNpc::new);
+			gamer.sendForm(Form.custom()
+					.input("Название", "", "Minigame")
+					.onSubmit((___, resp) -> {
+						npc.setNameTag(resp.getInput(0));
+						npc.setNameTagVisible();
+						npc.setNameTagAlwaysVisible();
+						npc.setShouldLookAtPlayer(true);
+						npc.spawn();
+						gamer.sendMessage("JoinNPC добавлен");
+					}));
+		});
+
 		gamer.sendForm(form);
 	}
 

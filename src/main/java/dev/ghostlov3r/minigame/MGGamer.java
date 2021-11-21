@@ -498,28 +498,41 @@ public class MGGamer <TArena extends Arena, TTeam extends Team> extends Gamer {
 	}
 
 	public class ScoreUpdater {
-		public static int LOCAL_ONLINE_LINE = 1;
-		public static int FULL_ONLINE_LINE = 2;
+		public static int GOLD_LINE = 1;
+		public static int SILVER_LINE = 2;
+		public static int LOCAL_ONLINE_LINE = 4;
+		public static int FULL_ONLINE_LINE = 5;
 
 		public void onLobbyJoin () {
 			score().hide();
 			score().show();
 			score().set(0, " ");
+			showGoldBalance();
+			showSilverBalance();
+			score().set(3, "  ");
 			int local = Server.unsafe().playerList().size();
 			onLocalOnlineCountChange(local);
 			onFullOnlineCountChange(Math.max(local, manager.mainHub.onlineCount));
-			score().set(3, "  ");
+			score().set(6, "   ");
+		}
+
+		protected void showGoldBalance () {
+			score().set(GOLD_LINE, " Золото:" + TextFormat.YELLOW+money);
+		}
+
+		protected void showSilverBalance () {
+			score().set(SILVER_LINE, " Серебро:" + TextFormat.AQUA+money);
 		}
 
 		public void onLocalOnlineCountChange(int newCount) {
 			if (inLobby()) {
-				score().set(LOCAL_ONLINE_LINE, " Онлайн в игре: "+TextFormat.YELLOW+ newCount + " ");
+				score().set(LOCAL_ONLINE_LINE, " Онлайн режима: "+TextFormat.YELLOW+ newCount + " ");
 			}
 		}
 
 		public void onFullOnlineCountChange(int newCount) {
 			if (inLobby()) {
-				score().set(FULL_ONLINE_LINE, " Общий онлайн: "+TextFormat.YELLOW+ newCount + " ");
+				score().set(FULL_ONLINE_LINE, " Онлайн проекта: "+TextFormat.YELLOW+ newCount + " ");
 			}
 		}
 
@@ -534,7 +547,7 @@ public class MGGamer <TArena extends Arena, TTeam extends Team> extends Gamer {
 		}
 
 		protected void updateVote () {
-			score().set(1, " Ваш голос: "+ (vote == null ? (TextFormat.RED+"Нету") : (TextFormat.GREEN+vote.displayName)));
+			score().set(1, " Ваш голос: "+ (vote == null ? (TextFormat.RED+"Нету") : (TextFormat.GREEN+vote.displayName)) + " ");
 		}
 
 		public void updateArenaPlayerCount () {

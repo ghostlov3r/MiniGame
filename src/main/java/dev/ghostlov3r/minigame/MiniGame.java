@@ -4,11 +4,13 @@ import dev.ghostlov3r.beengine.Beengine;
 import dev.ghostlov3r.beengine.Server;
 import dev.ghostlov3r.beengine.block.Position;
 import dev.ghostlov3r.beengine.block.blocks.BlockSign;
+import dev.ghostlov3r.beengine.entity.Entity;
 import dev.ghostlov3r.beengine.event.EventManager;
 import dev.ghostlov3r.beengine.scheduler.AsyncTask;
 import dev.ghostlov3r.beengine.scheduler.Scheduler;
 import dev.ghostlov3r.beengine.scheduler.TaskControl;
 import dev.ghostlov3r.beengine.utils.DiskMap;
+import dev.ghostlov3r.beengine.utils.TextFormat;
 import dev.ghostlov3r.beengine.world.Particle;
 import dev.ghostlov3r.beengine.world.World;
 import dev.ghostlov3r.beengine.world.format.io.WorldProvider;
@@ -17,10 +19,7 @@ import dev.ghostlov3r.math.Vector3;
 import dev.ghostlov3r.minigame.arena.Arena;
 import dev.ghostlov3r.minigame.arena.ArenaState;
 import dev.ghostlov3r.minigame.arena.Team;
-import dev.ghostlov3r.minigame.data.ArenaData;
-import dev.ghostlov3r.minigame.data.ArenaType;
-import dev.ghostlov3r.minigame.data.GameMap;
-import dev.ghostlov3r.minigame.data.MapTeam;
+import dev.ghostlov3r.minigame.data.*;
 import it.unimi.dsi.fastutil.ints.Int2ReferenceMap;
 import it.unimi.dsi.fastutil.ints.Int2ReferenceOpenHashMap;
 import lombok.Setter;
@@ -28,14 +27,13 @@ import lombok.SneakyThrows;
 import lombok.experimental.Accessors;
 import lord.core.Lord;
 import lord.core.union.UnionServer;
+import lord.core.util.LordNpc;
 import lord.core.util.ParticleHelix;
 
 import javax.annotation.Nullable;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 @SuppressWarnings({"unchecked"})
 
@@ -99,6 +97,8 @@ public class MiniGame
 		this.gamerType = gamerType;
 		this.dataPath = dataPath;
 		this.listenerType = listenerType;
+
+		MG.game = this;
 
 		Server.pluginManager().enablePlugin(Server.pluginManager().getPlugin("LordCore"));
 
@@ -371,19 +371,19 @@ public class MiniGame
 	}
 
 	@Nullable
-	public Arena matchArenaForJoin () {
+	public Arena matchArenaForJoin (Collection<ArenaType> types) {
 		if (arenas.isEmpty()) {
 			return null;
 		}
 		for (Arena arena : arenas.values()) {
 			if (arena.isJoinable()) {
-				if (!arena.isEmpty()) {
+				if (!arena.isEmpty() && types.contains(arena.type())) {
 					return arena;
 				}
 			}
 		}
 		for (Arena arena : arenas.values()) {
-			if (arena.isJoinable()) {
+			if (arena.isJoinable() && types.contains(arena.type())) {
 				return arena;
 			}
 		}

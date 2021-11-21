@@ -7,10 +7,7 @@ import dev.ghostlov3r.beengine.utils.DiskMap;
 import dev.ghostlov3r.minigame.Colors;
 import dev.ghostlov3r.minigame.arena.ArenaState;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.EnumMap;
-import java.util.List;
+import java.util.*;
 import java.util.regex.Pattern;
 
 /**

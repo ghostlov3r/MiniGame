@@ -5,6 +5,7 @@ import dev.ghostlov3r.beengine.block.Block;
 import dev.ghostlov3r.beengine.block.BlockIds;
 import dev.ghostlov3r.beengine.block.Blocks;
 import dev.ghostlov3r.beengine.block.blocks.BlockSign;
+import dev.ghostlov3r.beengine.entity.Entity;
 import dev.ghostlov3r.beengine.event.EventListener;
 import dev.ghostlov3r.beengine.event.EventPriority;
 import dev.ghostlov3r.beengine.event.Priority;
@@ -15,6 +16,7 @@ import dev.ghostlov3r.beengine.event.entity.EntityDamageEvent;
 import dev.ghostlov3r.beengine.event.inventory.InventoryTransactionEvent;
 import dev.ghostlov3r.beengine.event.player.*;
 import dev.ghostlov3r.beengine.event.plugin.PluginDisableEvent;
+import dev.ghostlov3r.beengine.event.world.ChunkLoadEvent;
 import dev.ghostlov3r.beengine.event.world.ChunkUnloadEvent;
 import dev.ghostlov3r.beengine.event.world.WorldLoadEvent;
 import dev.ghostlov3r.beengine.event.world.WorldSaveEvent;
@@ -78,6 +80,7 @@ public class MiniGameListener implements EventListener<MGGamer> {
 		MGGamer gamer = event.player();
 		gamer.manager = manager;
 		gamer.setScore(new Scoreboard(gamer));
+		gamer.score().setHeader(Lord.instance.config().getBoldName());
 	}
 
 	@Override
@@ -197,7 +200,7 @@ public class MiniGameListener implements EventListener<MGGamer> {
 			if (event.player().arena() == null && event.player().world() == World.defaultWorld()) {
 				if (event.isNotCancelled()) {
 					if (event.player().world().getBlock(event.endPoint()).id() == manager.config().randomJoinBlockId) {
-						Arena arena = manager.matchArenaForJoin();
+						Arena arena = manager.matchArenaForJoin(manager.arenaTypes().values());
 						if (arena == null) {
 							event.player().sendTip(TextFormat.RED + "Все арены заполнены!");
 						} else {
