@@ -34,14 +34,12 @@ public class MiniGameConfig extends Config {
 	public String waitLobbyName = "wait";
 
 	public String menuItemDecorSymbol = "◆";
+	public boolean lobbyDoubleJump = true;
 
 	public boolean randomJoinBlockEnabled = false;
 	public int randomJoinBlockId = BlockIds.END_PORTAL;
 
 	public boolean enableHungerInGame = true;
-
-	public Vector3 lobbySpawn = new Vector3();
-	public Vector3 waitLobbySpawn = new Vector3();
 
 	public boolean lobbyHelixEnabled = false;
 	public Vector3 lobbyHelixPos = new Vector3();

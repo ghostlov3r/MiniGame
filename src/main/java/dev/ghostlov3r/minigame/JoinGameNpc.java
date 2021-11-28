@@ -2,8 +2,6 @@ package dev.ghostlov3r.minigame;
 
 import dev.ghostlov3r.beengine.Server;
 import dev.ghostlov3r.beengine.entity.util.Location;
-import dev.ghostlov3r.beengine.event.entity.EntityDamageByEntityEvent;
-import dev.ghostlov3r.beengine.event.entity.EntityDamageEvent;
 import dev.ghostlov3r.beengine.form.CustomForm;
 import dev.ghostlov3r.beengine.form.Form;
 import dev.ghostlov3r.beengine.form.element.Element;
@@ -16,6 +14,7 @@ import dev.ghostlov3r.minigame.data.ArenaType;
 import dev.ghostlov3r.nbt.NbtMap;
 import dev.ghostlov3r.nbt.NbtType;
 import it.unimi.dsi.fastutil.objects.ReferenceOpenHashSet;
+import lord.core.gamer.Gamer;
 import lord.core.util.LordNpc;
 
 import java.util.List;
@@ -52,18 +51,17 @@ public class JoinGameNpc extends LordNpc {
 	}
 
 	@Override
-	public void attack(EntityDamageEvent source) {
-		if (source instanceof EntityDamageByEntityEvent ev && ev.damager() instanceof MGGamer gamer) {
-			if (MG.game.tolerateOp && Server.operators().isOperator(gamer.name())) {
-				npcEditMenu(gamer);
-			}
-			else if (gamer.inLobby()) {
-				Arena arena = MG.game.matchArenaForJoin(arenaTypes);
-				if (arena == null) {
-					gamer.sendMessage(TextFormat.RED + "Все арены этого типа заполнены!");
-				} else {
-					arena.tryJoin(gamer);
-				}
+	public void onClick(Gamer g) {
+		MGGamer gamer = (MGGamer) g;
+		if (MG.game.tolerateOp && Server.operators().isOperator(gamer.name())) {
+			npcEditMenu(gamer);
+		}
+		else if (gamer.inLobby()) {
+			Arena arena = MG.game.matchArenaForJoin(arenaTypes);
+			if (arena == null) {
+				gamer.sendMessage(TextFormat.RED + "Все арены этого типа заполнены!");
+			} else {
+				arena.tryJoin(gamer);
 			}
 		}
 	}
@@ -77,6 +75,7 @@ public class JoinGameNpc extends LordNpc {
 		}
 		f.onSubmit((___, resp) -> {
 			modeName = resp.getInput(0);
+			arenaTypes.clear();
 			int i = 0;
 			for (Element element : f.elements()) {
 				if (element instanceof ElementToggle toggle) {
@@ -85,8 +84,6 @@ public class JoinGameNpc extends LordNpc {
 					if (type != null) {
 						if (enabled) {
 							arenaTypes.add(type);
-						} else {
-							arenaTypes.remove(type);
 						}
 					}
 				}

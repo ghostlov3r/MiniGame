@@ -5,7 +5,7 @@ import dev.ghostlov3r.beengine.block.Block;
 import dev.ghostlov3r.beengine.block.BlockIds;
 import dev.ghostlov3r.beengine.block.Blocks;
 import dev.ghostlov3r.beengine.block.blocks.BlockSign;
-import dev.ghostlov3r.beengine.entity.Entity;
+import dev.ghostlov3r.beengine.command.CommandSender;
 import dev.ghostlov3r.beengine.event.EventListener;
 import dev.ghostlov3r.beengine.event.EventPriority;
 import dev.ghostlov3r.beengine.event.Priority;
@@ -16,7 +16,6 @@ import dev.ghostlov3r.beengine.event.entity.EntityDamageEvent;
 import dev.ghostlov3r.beengine.event.inventory.InventoryTransactionEvent;
 import dev.ghostlov3r.beengine.event.player.*;
 import dev.ghostlov3r.beengine.event.plugin.PluginDisableEvent;
-import dev.ghostlov3r.beengine.event.world.ChunkLoadEvent;
 import dev.ghostlov3r.beengine.event.world.ChunkUnloadEvent;
 import dev.ghostlov3r.beengine.event.world.WorldLoadEvent;
 import dev.ghostlov3r.beengine.event.world.WorldSaveEvent;
@@ -24,11 +23,17 @@ import dev.ghostlov3r.beengine.item.ItemIds;
 import dev.ghostlov3r.beengine.scheduler.Scheduler;
 import dev.ghostlov3r.beengine.score.Scoreboard;
 import dev.ghostlov3r.beengine.utils.TextFormat;
+import dev.ghostlov3r.beengine.world.Sound;
 import dev.ghostlov3r.beengine.world.World;
 import dev.ghostlov3r.math.Vector3;
+import dev.ghostlov3r.minecraft.protocol.v113.packet.WorldSoundEvent;
 import dev.ghostlov3r.minigame.arena.Arena;
 import lord.core.Lord;
+import lord.core.gamer.Gamer;
 
+import java.util.Collection;
+
+@SuppressWarnings({"rawtypes", "unchecked"})
 @Priority(EventPriority.HIGH)
 public class MiniGameListener implements EventListener<MGGamer> {
 
@@ -90,10 +95,10 @@ public class MiniGameListener implements EventListener<MGGamer> {
 
 	@Override
 	public void onInventoryTransaction(InventoryTransactionEvent event) {
-		if (manager.tolerateOp && Server.operators().isOperator(event.getTransaction().source().name())) {
+		if (manager.tolerateOp && Server.operators().isOperator(event.transaction().source().name())) {
 			return;
 		}
-		if (event.getTransaction().source() instanceof MGGamer gamer) {
+		if (event.transaction().source() instanceof MGGamer gamer) {
 			if (!gamer.inGame()) {
 				event.cancel();
 			} else {
@@ -196,15 +201,22 @@ public class MiniGameListener implements EventListener<MGGamer> {
 
 	@Override
 	public void onPlayerMove(PlayerMoveEvent<MGGamer> event) {
-		if (manager.config().randomJoinBlockEnabled) {
-			if (event.player().arena() == null && event.player().world() == World.defaultWorld()) {
+		MGGamer gamer = event.player();
+		if (gamer.y < 10) {
+			if (gamer.arena() == null || gamer.inWaitLobby()) {
+				gamer.teleport(gamer.world().getSpawnPosition().addY(2));
+				gamer.broadcastSound(Sound.ENDERMAN_TELEPORT, gamer.asList());
+			}
+		}
+		else if (manager.config().randomJoinBlockEnabled) {
+			if (gamer.arena() == null && gamer.world() == World.defaultWorld()) {
 				if (event.isNotCancelled()) {
-					if (event.player().world().getBlock(event.endPoint()).id() == manager.config().randomJoinBlockId) {
+					if (gamer.world().getBlock(event.endPoint()).id() == manager.config().randomJoinBlockId) {
 						Arena arena = manager.matchArenaForJoin(manager.arenaTypes().values());
 						if (arena == null) {
-							event.player().sendTip(TextFormat.RED + "Все арены заполнены!");
+							gamer.sendTip(TextFormat.RED + "Все арены заполнены!");
 						} else {
-							arena.tryJoin(event.player());
+							arena.tryJoin(gamer);
 						}
 					}
 				}
@@ -222,25 +234,59 @@ public class MiniGameListener implements EventListener<MGGamer> {
 	@Override
 	public void onWorldLoad(WorldLoadEvent event) {
 		World w = event.world();
-
-		if (w == World.defaultWorld()) {
-			Vector3 spawn = manager.config().lobbySpawn;
-			if (spawn != null && !spawn.equals(new Vector3())) {
-				w.setSpawnLocation(spawn);
-			}
-		}
-		else if (w.uniqueName().equals(manager.config().waitLobbyName)) {
-			Vector3 spawn = manager.config().waitLobbySpawn;
-			if (spawn != null && !spawn.equals(new Vector3())) {
-				w.setSpawnLocation(spawn);
-			}
-		}
 	}
 
 	@Override
 	public void onWorldSave(WorldSaveEvent event) {
 		if (event.world() == World.defaultWorld()) {
 			manager.config().save();
+		}
+	}
+
+	@Override
+	public void onPlayerToggleFlight(PlayerToggleFlightEvent<MGGamer> event) {
+		Gamer gamer = event.player();
+		if (event.isFlying()
+				&& gamer.isSurvival()
+				&& gamer.world() == World.defaultWorld()
+				&& manager.config().lobbyDoubleJump) {
+			event.cancel();
+			if (gamer.inAirTicks() < 10) {
+				gamer.setMotion(event.player().directionVector().addY(0.5f).multiply(1.2f));
+				gamer.broadcastSound(Sound.of(WorldSoundEvent.SoundId.ARMOR_EQUIP_GENERIC));
+			}
+			gamer.setAllowFlight(false);
+			Scheduler.delay(30, () -> {
+				if (gamer.world() == World.defaultWorld()) {
+					gamer.setAllowFlight(true);
+				}
+			});
+		}
+	}
+
+	@Override
+	public void onPlayerDropItem(PlayerDropItemEvent<MGGamer> event) {
+		if (!event.player().inGame()) {
+			event.cancel();
+		}
+	}
+
+	@Override
+	public void onPlayerItemConsume(PlayerItemConsumeEvent<MGGamer> event) {
+		if (!event.player().inGame()) {
+			event.cancel();
+		}
+	}
+
+	@Override
+	public void onPlayerChat(PlayerChatEvent<MGGamer> event) {
+		event.setRecipients((Collection<CommandSender>) (Collection) event.player().world().unsafe().players().values());
+	}
+
+	@Override
+	public void onPlayerItemUse(PlayerItemUseEvent<MGGamer> event) {
+		if (event.player().onUse != null) {
+			event.player().onUse.run();
 		}
 	}
 }

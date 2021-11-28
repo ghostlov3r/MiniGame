@@ -125,6 +125,11 @@ public class ArenaType extends DiskEntry<String> {
 	}
 
 	protected boolean isMapMatches (GameMap map) {
-		return key().equals(map.type());
+		return map.types().contains(key());
+	}
+
+	@Override
+	public String toString() {
+		return key();
 	}
 }

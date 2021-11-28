@@ -3,6 +3,7 @@ package dev.ghostlov3r.minigame;
 import dev.ghostlov3r.beengine.Beengine;
 import dev.ghostlov3r.beengine.Server;
 import dev.ghostlov3r.beengine.block.Blocks;
+import dev.ghostlov3r.beengine.data.bedrock.LegacyItemIdToStringIdMap;
 import dev.ghostlov3r.beengine.entity.util.EntitySpawnHelper;
 import dev.ghostlov3r.beengine.event.block.BlockBreakEvent;
 import dev.ghostlov3r.beengine.event.block.BlockPlaceEvent;
@@ -13,8 +14,8 @@ import dev.ghostlov3r.beengine.form.SimpleForm;
 import dev.ghostlov3r.beengine.inventory.ArmorInventory;
 import dev.ghostlov3r.beengine.inventory.PlayerInventory;
 import dev.ghostlov3r.beengine.item.Item;
+import dev.ghostlov3r.beengine.item.ItemIds;
 import dev.ghostlov3r.beengine.item.Items;
-import dev.ghostlov3r.beengine.item.WritableBookPage;
 import dev.ghostlov3r.beengine.player.GameMode;
 import dev.ghostlov3r.beengine.player.Player;
 import dev.ghostlov3r.beengine.player.PlayerInfo;
@@ -32,7 +33,10 @@ import dev.ghostlov3r.nbt.NbtMap;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.experimental.Accessors;
+import lord.core.Lord;
 import lord.core.gamer.Gamer;
+import lord.core.union.UnionServer;
+
 import javax.annotation.Nullable;
 import java.util.List;
 
@@ -43,6 +47,8 @@ import java.util.List;
 @Accessors(fluent = true)
 @Getter
 public class MGGamer <TArena extends Arena, TTeam extends Team> extends Gamer {
+
+	public Runnable onUse;
 
 	/** Команда, в которой находится игрок */
 	@Nullable private TTeam team;
@@ -219,7 +225,7 @@ public class MGGamer <TArena extends Arena, TTeam extends Team> extends Gamer {
 							}
 							teleportToGameWorld();
 							setGamemode(modeInGame());
-							sendActionBarMessage(TextFormat.GREEN + "Вы вернулись к игре");
+							sendActionBarMessage(TextFormat.GREEN + "Ты снова в игре!");
 							onRespawn();
 							return;
 						}
@@ -240,7 +246,7 @@ public class MGGamer <TArena extends Arena, TTeam extends Team> extends Gamer {
 	}
 
 	protected String deadMessage () {
-		return TextFormat.RED+"Вы выбыли из игры";
+		return TextFormat.RED+"Ты выбыл(а) из игры";
 	}
 
 	protected void onDeathInGameAndWaitingForRespawn () {
@@ -256,24 +262,40 @@ public class MGGamer <TArena extends Arena, TTeam extends Team> extends Gamer {
 	}
 
 	public void showGameInfo () {
-		sendForm(Form.simple());
+		sendForm(Form.simple()
+				.title(Lord.instance.config().getLongName())
+				.content("Место, где ты находишься, называется Лобби.\n\n" +
+						"Здесь ты можешь выбрать, в какой вариант "+Lord.instance.config().getBoldName()+" ты будешь играть.\n" +
+						"Например, есть режим где каждый сам за себя, а есть игра в команде.\n\n" +
+						"В Лобби стоят статуи. Над головой у них написано, какой это вариант игры, и сколько игроков на нем играет.\n\n" +
+						"Чтобы попасть на матч, нажми на одну из статуй. \n" +
+						"Ты переместишься в место ожидания матча. Когда наберётся достаточно игроков, матч начнётся.\n\n"
+						+additionalGameInfo()
+				)
+		);
+	}
+
+	protected String additionalGameInfo () {
+		return "";
 	}
 
 	public void showStatistics () {
-		sendForm(Form.simple());
+		sendForm(Form.simple()
+				.title("Статистика матчей")
+				.content(
+						"Одиночных игр: "+soloGames
+						+"\nОдиночных побед: "+soloWins
+						+"\nКомандных игр: "+teamGames
+						+"\nКомандных побед: "+teamWins
+				)
+		);
 	}
 
 	/* ======================================================================================= */
 
 	public void goToLobby () {
 		teleport(World.defaultWorld().getSpawnPosition());
-		if (isConnected()) {
-			setGamemode(GameMode.ADVENTURE);
-			hungerManager().setFood(hungerManager.maxFood());
-			hungerManager().setEnabled(false);
-			setHealth(maxHealth());
-			onLobbyJoin();
-		}
+		onLobbyJoin();
 	}
 
 	@Override
@@ -292,16 +314,41 @@ public class MGGamer <TArena extends Arena, TTeam extends Team> extends Gamer {
 		invUpdater.onLobbyJoin();
 		scoreUpdater.onLobbyJoin();
 		xpManager().setXpAndProgressNoEvent(0, 1f);
+		if (manager.config().lobbyDoubleJump) {
+			setAllowFlight(true);
+		}
+		setMovementSpeed(initialMovementSpeed * 1.3f);
+
+		setGamemode(GameMode.ADVENTURE);
+		hungerManager().setFood(hungerManager.maxFood());
+		hungerManager().setEnabled(false);
+		setHealth(maxHealth());
+
+		World w = World.defaultWorld();
+		if (w.isRaining()) {
+			w.setRaining(false);
+		}
+		if (!w.isThundering()) {
+			w.setThundering(true);
+		}
 	}
+
+	float initialMovementSpeed;
 
 	@Override
 	public void onSuccessAuth() {
 		super.onSuccessAuth();
+		initialMovementSpeed = movementSpeed();
 		onLobbyJoin();
+		score().show();
 	}
 
 	public void onLobbyQuit () {
-
+		setMovementSpeed(initialMovementSpeed);
+		if (manager.config().lobbyDoubleJump) {
+			setFlying(false);
+			setAllowFlight(false);
+		}
 	}
 
 	public void onInventoryTransaction (InventoryTransactionEvent event) {
@@ -456,6 +503,8 @@ public class MGGamer <TArena extends Arena, TTeam extends Team> extends Gamer {
 	public void teleportToWaitLobby () {
 		teleport(manager.waitLobby().getSpawnPosition(), () -> {
 			broadcastSound(Sound.ENDERMAN_TELEPORT, asList());
+			setFlying(false);
+			setAllowFlight(false);
 		});
 	}
 
@@ -482,14 +531,17 @@ public class MGGamer <TArena extends Arena, TTeam extends Team> extends Gamer {
 	}
 
 	public void tryChangeTeam (TTeam newTeam) {
+		if (!inTeam()) {
+			return;
+		}
 		if (newTeam == team) {
-			sendMessage("Вы уже в этой команде!");
+			sendMessage("Ты уже в этой команде!");
 		}
 		else if (newTeam.isJoinable()) {
 			--team.gamersCount;
 			team = newTeam;
 			++team.gamersCount;
-			sendMessage("Теперь вы в команде "+newTeam.textColor() + newTeam.name());
+			sendMessage("Теперь ты в команде "+newTeam.textColor() + newTeam.name());
 			invUpdater.giveTeamChooseItem();
 		}
 		else {
@@ -500,12 +552,11 @@ public class MGGamer <TArena extends Arena, TTeam extends Team> extends Gamer {
 	public class ScoreUpdater {
 		public static int GOLD_LINE = 1;
 		public static int SILVER_LINE = 2;
-		public static int LOCAL_ONLINE_LINE = 4;
-		public static int FULL_ONLINE_LINE = 5;
+		// public static int LOCAL_ONLINE_LINE = 4;
+		public static int FULL_ONLINE_LINE = 4;
 
 		public void onLobbyJoin () {
-			score().hide();
-			score().show();
+			score().clear();
 			score().set(0, " ");
 			showGoldBalance();
 			showSilverBalance();
@@ -517,16 +568,16 @@ public class MGGamer <TArena extends Arena, TTeam extends Team> extends Gamer {
 		}
 
 		protected void showGoldBalance () {
-			score().set(GOLD_LINE, " Золото:" + TextFormat.YELLOW+money);
+			score().set(GOLD_LINE, " Золото: " + TextFormat.YELLOW+money);
 		}
 
 		protected void showSilverBalance () {
-			score().set(SILVER_LINE, " Серебро:" + TextFormat.AQUA+money);
+			score().set(SILVER_LINE, " Серебро: " + TextFormat.AQUA+money);
 		}
 
 		public void onLocalOnlineCountChange(int newCount) {
 			if (inLobby()) {
-				score().set(LOCAL_ONLINE_LINE, " Онлайн режима: "+TextFormat.YELLOW+ newCount + " ");
+				// score().set(LOCAL_ONLINE_LINE, " Онлайн режима: "+TextFormat.YELLOW+ newCount + " ");
 			}
 		}
 
@@ -537,6 +588,7 @@ public class MGGamer <TArena extends Arena, TTeam extends Team> extends Gamer {
 		}
 
 		public void onWaitLobbyJoin () {
+			score().clear();
 			score().set(0, " ");
 			updateArenaPlayerCount();
 			updateVote();
@@ -547,13 +599,13 @@ public class MGGamer <TArena extends Arena, TTeam extends Team> extends Gamer {
 		}
 
 		protected void updateVote () {
-			score().set(1, " Ваш голос: "+ (vote == null ? (TextFormat.RED+"Нету") : (TextFormat.GREEN+vote.displayName)) + " ");
+			score().set(1, " Твой голос: "+ (vote == null ? (TextFormat.RED+"Нету") : (TextFormat.GREEN+vote.displayName)) + " ");
 		}
 
 		public void updateArenaPlayerCount () {
 			TArena arena = gameOrSpectArena();
 			int idx = arena.state() == ArenaState.GAME ? 4 : 2;
-			score().set(idx, " Игроков: "+ arena.gamers().size() + "/"+arena.type().maxPlayers());
+			score().set(idx, " Игроков: "+ arena.gamers().size() + "/"+arena.type().maxPlayers()+" ");
 		}
 
 		public void onTick (int second) {
@@ -577,7 +629,7 @@ public class MGGamer <TArena extends Arena, TTeam extends Team> extends Gamer {
 
 		public void onPreGame () {
 			showMapName();
-			score().set(2, " Приготовьтесь к игре... ");
+			score().set(2, " Приготовься... ");
 			initTeamScores();
 		}
 
@@ -613,8 +665,7 @@ public class MGGamer <TArena extends Arena, TTeam extends Team> extends Gamer {
 		}
 
 		public void onGameEnd () {
-			score().hide();
-			score().show();
+			score().clear();
 			score().set(0, " ");
 			showMapName();
 			score().set(2, "  ");
@@ -638,12 +689,30 @@ public class MGGamer <TArena extends Arena, TTeam extends Team> extends Gamer {
 		}
 
 		public void onSpectate () {
-			score().hide();
-			score().show();
+			score().clear();
 			score().set(0, " ");
 			showMapName();
 			initTeamScores();
 		}
+	}
+
+	protected void showServerList () {
+		SimpleForm form = Form.simple();
+		Lord.unionHandler.servers().forEach(server -> {
+			if (server != Lord.unionHandler.thisServer()) {
+				String text = server.name;
+				if (server == manager.mainHub) {
+					text = "Вернуться в ХАБ";
+				}
+				// if (server.isOnline) {
+				// 	text += TextFormat.YELLOW+" ("+server.onlineCount+" игроков)";
+				// }
+				form.button(server.name, "url", "textures/items/"+ LegacyItemIdToStringIdMap.getInstance().legacyToString(ItemIds.ENDER_PEARL) +".png", __ -> {
+					unionTransfer(server);
+				});
+			}
+		});
+		sendForm(form);
 	}
 
 	public class InventoryUpdater {
@@ -652,7 +721,8 @@ public class MGGamer <TArena extends Arena, TTeam extends Team> extends Gamer {
 
 		public static final int HIDE_PLAYERS_SLOT = 1;
 		public static final int FRIENDS_SLOT = 2;
-		public static final int GAME_INFO_SLOT = 4;
+		public static final int SERVER_LIST_SLOT = 3;
+		public static final int GAME_INFO_SLOT = 5;
 		public static final int STATS_SLOT = 6;
 		public static final int DONATE_SLOT = 7;
 
@@ -666,39 +736,52 @@ public class MGGamer <TArena extends Arena, TTeam extends Team> extends Gamer {
 			inv.clear();
 			armor.clear();
 			giveHidingItem();
+			giveFriendsItem();
+			giveServerListItem();
+			giveGameInfoItem();
+			giveStatsItem();
+			giveDonateItem();
+			inv.setItemInHandIndex(0);
+		}
+
+		protected void giveFriendsItem () {
 			inv.setItem(FRIENDS_SLOT, Items.PLAYER_HEAD()
 					.setCustomName(decorateName("Друзья"))
 					.onInteract((p, b) -> {
 						showFriends();
 					}));
+		}
+
+		protected void giveServerListItem () {
+			inv.setItem(SERVER_LIST_SLOT, Items.COMPASS()
+					.setCustomName(decorateName("Выбрать сервер"))
+					.onInteract((p, b) -> {
+						showServerList();
+					}));
+		}
+
+		protected void giveGameInfoItem () {
 			inv.setItem(GAME_INFO_SLOT, Items.BOOK()
-					.setCustomName(decorateName("Информация о игре"))
+					.setCustomName(decorateName("Как играть"))
 					.onInteract((p, b) -> {
 						showGameInfo();
 					}));
-			/*inv.setItem(STATS_SLOT, Items.PAPER()
+		}
+
+		protected void giveStatsItem () {
+			inv.setItem(STATS_SLOT, Items.PAPER()
 					.setCustomName(decorateName("Статистика"))
 					.onInteract((p, b) -> {
 						showStatistics();
-					}));*/
-			inv.setItem(STATS_SLOT, Items.WRITTEN_BOOK()
-					.setTitle("Статистика матчей")
-					.setPages(new WritableBookPage(
-							"Одиночных игр: "+soloGames
-									+"\nОдиночных побед: "+soloWins
-									+"\nКомандных игр: "+teamGames
-									+"\nКомандных побед: "+teamWins
-					))
-					.setCustomName(decorateName("Статистика"))
-					/*.onInteract((p, b) -> {
-						showStatistics();
-					})*/);
+					}));
+		}
+
+		protected void giveDonateItem () {
 			inv.setItem(DONATE_SLOT, Items.GOLDEN_APPLE()
 					.setCustomName(decorateName("Донат"))
 					.onInteract((p, b) -> {
 						showDonateInfo();
 					}));
-			inv.setItemInHandIndex(0);
 		}
 
 		public void onWaitLobbyJoin () {
@@ -706,13 +789,13 @@ public class MGGamer <TArena extends Arena, TTeam extends Team> extends Gamer {
 			giveTeamChooseItem();
 			giveArenaLeaveItem();
 
-			inv.setItem(MAP_VOTE_SLOT, Items.COMPASS().setCustomName(decorateName("Голосовать за карту"))
+			inv.setItem(MAP_VOTE_SLOT, Items.COMPASS().setCustomName(decorateName("Голосуй за карту"))
 					.onInteract((p, b) -> {
 						SimpleForm form = Form.simple();
 						arena().type().maps().forEach(map -> {
 							form.button(map.displayName, __ -> {
 								vote = map;
-								sendMessage(TextFormat.GREEN+"Вы проголосовали за "+map.displayName);
+								sendMessage("Твой голос отдан за "+TextFormat.GREEN+map.displayName);
 								scoreUpdater.updateVote();
 							});
 						});
@@ -806,7 +889,7 @@ public class MGGamer <TArena extends Arena, TTeam extends Team> extends Gamer {
 
 		protected void giveArenaLeaveItem () {
 			inventory.setItem(LEAVE_ARENA_SLOT, Blocks.OAK_DOOR().asItem()
-					.setCustomName(decorateName("Покинуть"))
+					.setCustomName(decorateName("Выйти из игры"))
 					.onInteract((p, b) -> {
 						leaveArena(false);
 					})
@@ -835,5 +918,20 @@ public class MGGamer <TArena extends Arena, TTeam extends Team> extends Gamer {
 		public String decorateName(String name) {
 			return TextFormat.GREEN + manager.config().menuItemDecorSymbol + " " + TextFormat.GOLD + name + " " + TextFormat.GREEN + manager.config().menuItemDecorSymbol;
 		}
+	}
+
+	public boolean unionTransfer (UnionServer server) {
+		if (server.isOnline) {
+			if (manager.mainHub.isOnline) {
+				transfer(server.address.getAddress().getHostAddress(), server.address.getPort());
+				return true;
+			}
+			else {
+				sendMessage(TextFormat.RED+"Не получилось перейти, попробуй снова");
+			}
+		} else {
+			sendMessage(TextFormat.RED+"Этот сервер временно выключен");
+		}
+		return false;
 	}
 }

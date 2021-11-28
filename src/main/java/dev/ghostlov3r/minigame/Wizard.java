@@ -1,7 +1,11 @@
 package dev.ghostlov3r.minigame;
 
 import dev.ghostlov3r.beengine.Server;
+import dev.ghostlov3r.beengine.block.utils.DyeColor;
+import dev.ghostlov3r.beengine.form.CustomForm;
 import dev.ghostlov3r.beengine.form.Form;
+import dev.ghostlov3r.beengine.form.element.Element;
+import dev.ghostlov3r.beengine.form.element.ElementToggle;
 import dev.ghostlov3r.beengine.item.Items;
 import dev.ghostlov3r.beengine.player.GameMode;
 import dev.ghostlov3r.beengine.utils.TextFormat;
@@ -10,17 +14,21 @@ import dev.ghostlov3r.minigame.data.ArenaType;
 import dev.ghostlov3r.minigame.data.GameMap;
 import dev.ghostlov3r.minigame.data.MapTeam;
 import dev.ghostlov3r.minigame.data.WeakLocation;
+import it.unimi.dsi.fastutil.objects.ReferenceOpenHashSet;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
 
 public class Wizard<TGameMap extends GameMap, TMapTeam extends MapTeam> {
 
 	protected World world;
 	protected MGGamer gamer;
 	protected TGameMap map;
-	protected ArenaType type;
+	protected Set<ArenaType> types = new ReferenceOpenHashSet<>();
 
-	public Wizard (MGGamer creator, ArenaType t) {
+	public Wizard (MGGamer creator) {
 		gamer = creator;
-		type = t;
 		world = gamer.world();
 		map = (TGameMap) gamer.manager.instantiateMap(world.uniqueName());
 		gamer.inventory().clear();
@@ -30,15 +38,39 @@ public class Wizard<TGameMap extends GameMap, TMapTeam extends MapTeam> {
 		}));
 	}
 
+	protected boolean usesColors () {
+		return types.stream().anyMatch(ArenaType::usesColors);
+	}
+
+	protected List<DyeColor> colors () {
+		return types.stream().filter(ArenaType::usesColors).findAny().orElseThrow().colors();
+	}
+
+	protected int teamCount () {
+		return types.stream().mapToInt(ArenaType::teamCount).max().orElseThrow();
+	}
+
+	protected int minSlots () {
+		return types.stream().mapToInt(ArenaType::teamSlots).min().orElseThrow();
+	}
+
+	protected int maxSlots () {
+		return types.stream().mapToInt(ArenaType::teamSlots).max().orElseThrow();
+	}
+
 	protected void sendStartForm () {
 		gamer.sendForm(Form.simple()
 				.content("Вас приветсвует Мастер настройки игровой карты.\n" +
 						"Карта будет создана в мире '"+world.uniqueName()+"'\n" +
-						"Тип создаваемой карты - "+type.key()+(type.usesColors() ? " c цветами" : " без цветов")+"\n"+
+						"Типы создаваемой карты - "+types+(usesColors() ? " c цветами" : " без цветов")+"\n"+
 						"Отображаемое имя карты - "+map.displayName)
 				.button("Начать", __ -> {
-					gamer.inventory().remove(Items.COMPASS());
-					continueCreateMap();
+					if (types.isEmpty()) {
+						typesEditMenu();
+					} else {
+						gamer.inventory().remove(Items.COMPASS());
+						continueCreateMap();
+					}
 				})
 				.button("Выбрать другое имя", __ -> {
 					gamer.sendForm(Form.custom()
@@ -51,8 +83,8 @@ public class Wizard<TGameMap extends GameMap, TMapTeam extends MapTeam> {
 								sendStartForm();
 							}));
 				})
-				.button("Выбрать другой тип", __ -> {
-					gamer.manager.cmd().showTypes(gamer, null, world.uniqueName());
+				.button("Выбраны типы ("+types.size()+" шт.)", __ -> {
+					typesEditMenu();
 				})
 				.button("Отменить", __ -> {
 					gamer.inventory().remove(Items.COMPASS());
@@ -67,6 +99,37 @@ public class Wizard<TGameMap extends GameMap, TMapTeam extends MapTeam> {
 				.onClose(___ -> {
 					gamer.sendMessage("Используйте компас, чтобы вернуться к Мастеру");
 				}));
+	}
+
+	protected void typesEditMenu () {
+		MiniGame manager = MG.game;
+		CustomForm f = Form.custom();
+		for (ArenaType type : manager.arenaTypes().values()) {
+			f.toggle(type.key(), types.contains(type));
+		}
+		f.onSubmit((___, resp) -> {
+			types.clear();
+			int i = 0;
+			for (Element element : f.elements()) {
+				if (element instanceof ElementToggle toggle) {
+					boolean enabled = resp.getToggle(i++);
+					ArenaType type = manager.arenaTypes().get(toggle.getText());
+					if (type != null) {
+						if (enabled) {
+							types.add(type);
+						}
+					}
+				}
+			}
+
+			if (usesColors() && teamCount() > Colors.COLORS.size()) {
+				types.clear();
+				gamer.sendMessage(TextFormat.RED+"Если используется хотябы 1 тип с цветами, команд должно быть не более "+Colors.COLORS.size());
+			} else {
+				sendStartForm();
+			}
+		});
+		gamer.sendForm(f);
 	}
 
 	protected void continueCreateMap() {
@@ -84,7 +147,7 @@ public class Wizard<TGameMap extends GameMap, TMapTeam extends MapTeam> {
 	}
 
 	protected boolean canFinishMapCreation () {
-		if (map.teams.size() < type.teamCount()) {
+		if (map.teams.size() < teamCount()) {
 			TMapTeam team = (TMapTeam) map.instantiateTeam();
 			gamer.sendMessage("Теперь вы создаете команду "+nameOfNewTeam());
 			continueCreateTeam(team);
@@ -103,12 +166,12 @@ public class Wizard<TGameMap extends GameMap, TMapTeam extends MapTeam> {
 	}
 
 	protected boolean canFinishTeamCreation (TMapTeam team) {
-		if (team.locations().size() < type.teamSlots()) {
-			gamer.sendMessage("Встаньте на "+(team.locations().size()+1)+" точку команды "+nameOfNewTeam()+" и зашифтите");
-			gamer.onShift = () -> {
+		if (team.locations().size() < maxSlots()) {
+			gamer.sendMessage("Встаньте на "+(team.locations().size()+1)+" точку команды "+nameOfNewTeam()+" и кликните по воздуху");
+			gamer.onUse = () -> {
 				team.locations().add(WeakLocation.from(gamer));
 				gamer.sendMessage("Отлично, точка отмечена");
-				gamer.onShift = null;
+				gamer.onUse = null;
 				continueCreateTeam(team);
 			};
 			return false;
@@ -117,8 +180,8 @@ public class Wizard<TGameMap extends GameMap, TMapTeam extends MapTeam> {
 	}
 
 	protected String nameOfNewTeam () {
-		return type.usesColors()
-				? (Colors.asFormat(type.colors().get(map.teams.size()))+""+type.colors().get(map.teams.size())+TextFormat.RESET)
+		return usesColors()
+				? (Colors.asFormat(colors().get(map.teams.size()))+""+colors().get(map.teams.size())+TextFormat.RESET)
 				: (TextFormat.GOLD+"#"+(map.teams.size()+1)+TextFormat.RESET);
 	}
 

@@ -4,17 +4,16 @@ import dev.ghostlov3r.beengine.Beengine;
 import dev.ghostlov3r.beengine.Server;
 import dev.ghostlov3r.beengine.block.Position;
 import dev.ghostlov3r.beengine.block.blocks.BlockSign;
-import dev.ghostlov3r.beengine.entity.Entity;
 import dev.ghostlov3r.beengine.event.EventManager;
 import dev.ghostlov3r.beengine.scheduler.AsyncTask;
 import dev.ghostlov3r.beengine.scheduler.Scheduler;
 import dev.ghostlov3r.beengine.scheduler.TaskControl;
 import dev.ghostlov3r.beengine.utils.DiskMap;
-import dev.ghostlov3r.beengine.utils.TextFormat;
 import dev.ghostlov3r.beengine.world.Particle;
 import dev.ghostlov3r.beengine.world.World;
 import dev.ghostlov3r.beengine.world.format.io.WorldProvider;
 import dev.ghostlov3r.common.concurrent.Promise;
+import dev.ghostlov3r.math.FRand;
 import dev.ghostlov3r.math.Vector3;
 import dev.ghostlov3r.minigame.arena.Arena;
 import dev.ghostlov3r.minigame.arena.ArenaState;
@@ -27,7 +26,6 @@ import lombok.SneakyThrows;
 import lombok.experimental.Accessors;
 import lord.core.Lord;
 import lord.core.union.UnionServer;
-import lord.core.util.LordNpc;
 import lord.core.util.ParticleHelix;
 
 import javax.annotation.Nullable;
@@ -102,10 +100,7 @@ public class MiniGame
 
 		Server.pluginManager().enablePlugin(Server.pluginManager().getPlugin("LordCore"));
 
-		this.mainHub = Lord.unionHandler.servers().stream()
-				.filter(server -> server.name.equals("lobby"))
-				.findAny()
-				.orElseThrow();
+		this.mainHub = Lord.unionHandler.getServer("lobby");
 
 		Files.createDirectories(dataPath);
 		config = MiniGameConfig.loadFromDir(dataPath, configType);
@@ -358,8 +353,8 @@ public class MiniGame
 	}
 
 	@SneakyThrows
-	public void startWizard (MGGamer gamer, ArenaType type) {
-		wizardType.getConstructor(MGGamer.class, ArenaType.class).newInstance(gamer, type);
+	public void startWizard (MGGamer gamer) {
+		wizardType.getConstructor(MGGamer.class).newInstance(gamer);
 	}
 
 	public GameMap instantiateMap (String name) {
@@ -372,9 +367,10 @@ public class MiniGame
 
 	@Nullable
 	public Arena matchArenaForJoin (Collection<ArenaType> types) {
-		if (arenas.isEmpty()) {
+		if (arenas.isEmpty() || types.isEmpty()) {
 			return null;
 		}
+		// Пробуем присоединиться к непустой арене
 		for (Arena arena : arenas.values()) {
 			if (arena.isJoinable()) {
 				if (!arena.isEmpty() && types.contains(arena.type())) {
@@ -382,6 +378,25 @@ public class MiniGame
 				}
 			}
 		}
+		// Пробуем найти пустую арену случайного из предоставленных типов
+		int randomTypeIdx = FRand.random().nextInt(types.size());
+		ArenaType type = null;
+		int i = 0;
+		for (ArenaType t : types) {
+			if (i == randomTypeIdx) {
+				type = t;
+				break;
+			}
+			++i;
+		}
+		for (Arena arena : arenas.values()) {
+			if (arena.isJoinable() && type == arena.type()) {
+				return arena;
+			}
+		}
+
+		// Все арены случайно выбранного типа заняты,
+		// возвращаем любую свободную арену подходящего типа
 		for (Arena arena : arenas.values()) {
 			if (arena.isJoinable() && types.contains(arena.type())) {
 				return arena;
@@ -405,6 +420,10 @@ public class MiniGame
 		if (Files.exists(Beengine.WORLDS_PATH.resolve(config.waitLobbyName))) {
 			World.load(config.waitLobbyName, World.LoadOption.ASYNC).onResolve(promise -> {
 				waitLobby = promise.result();
+				waitLobby.stopTime();
+				waitLobby.setDoWeatherCycle(false);
+				waitLobby.setRaining(false);
+				waitLobby.setThundering(false);
 			});
 		}
 	}

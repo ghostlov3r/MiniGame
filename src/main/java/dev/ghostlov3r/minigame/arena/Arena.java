@@ -157,15 +157,20 @@ public class Arena <TTeam extends Team, TGamer extends MGGamer>
 			}
 			case WAIT_END -> {
 				chooseMap();
-				World.load(map.worldName, LoadOption.ASYNC, LoadOption.UNIDENTIFIABLE_CLONE).onResolve(promise -> {
-					gameWorld = promise.result();
-					onGameWorldLoaded();
-				});
 				onWaitEnd();
 				teams.forEach(Team::onWaitEnd);
 				gamers.forEach(gamer -> {
 					gamer.xpManager().setXpAndProgressNoEvent(0, 0);
 					gamer.onWaitEnd();
+				});
+				World.load(map.worldName, worldFactory(), LoadOption.ASYNC, LoadOption.UNIDENTIFIABLE_CLONE).onResolve(promise -> {
+					gameWorld = promise.result();
+					gameWorld.setDoWeatherCycle(false);
+					gameWorld.setThundering(false);
+					gameWorld.setRaining(false);
+					gameWorld.setTime(World.TIME_DAY + 500);
+					gameWorld.stopTime();
+					onGameWorldLoaded();
 				});
 			}
 			case PRE_GAME -> {
@@ -190,7 +195,7 @@ public class Arena <TTeam extends Team, TGamer extends MGGamer>
 			case GAME -> {
 				forEachGamerAndSpectator(gamer -> {
 					gamer.broadcastSound(Sound.NOTE(Sound.NoteInstrument.PIANO, 50), gamer.asList());
-					gamer.sendSubTitle(TextFormat.GREEN + "Игра началась!");
+					gamer.sendTitle(" ", TextFormat.GREEN + "Игра началась!");
 				});
 				onGameStart();
 				teams.forEach(Team::onGameStart);
@@ -209,6 +214,7 @@ public class Arena <TTeam extends Team, TGamer extends MGGamer>
 					winData = forceWinDataOnEnd();
 				}
 				forEachGamerAndSpectator(gamer -> {
+					gamer.broadcastSound(Sound.NOTE(Sound.NoteInstrument.PIANO, 50), gamer.asList());
 					gamer.sendTitle("Игра окончена!");
 				});
 				Scheduler.delay(40, () -> {
@@ -230,6 +236,10 @@ public class Arena <TTeam extends Team, TGamer extends MGGamer>
 		updateSignState();
 	}
 
+	protected World.Factory worldFactory () {
+		return World.defaultFactory();
+	}
+
 	protected void onGameWorldLoaded () {
 
 	}
@@ -246,7 +256,7 @@ public class Arena <TTeam extends Team, TGamer extends MGGamer>
 				gamer.sendTitle("Победила команда "+winData.winnerTeam().coloredName()+"!");
 			}
 			else if (type.teamSlots() == 1) {
-				gamer.sendTitle("Победил "+winData.firstWinnerName()+"!");
+				gamer.sendTitle("Победил(а) "+winData.firstWinnerName()+"!");
 			}
 			else {
 				if (winData.winners().isEmpty()) {
@@ -457,16 +467,16 @@ public class Arena <TTeam extends Team, TGamer extends MGGamer>
 
 	public final boolean tryJoin (TGamer gamer) {
 		if (type.maps().isEmpty()) {
-			gamer.sendTitle(TextFormat.RED+"Арена выключена", TextFormat.GOLD+"Войдите на другую арену");
+			gamer.sendTitle(TextFormat.RED+"Арена выключена", TextFormat.GOLD+"Выбери на другую арену");
 			return false;
 		}
 		if (!isJoinable()) {
-			gamer.sendTitle(TextFormat.RED+"Арена сейчас не доступна", TextFormat.GOLD+"Ожидайте или войдите на другую арену");
+			gamer.sendTitle(TextFormat.RED+"Арена сейчас не доступна", TextFormat.GOLD+"Жди или войди на другую арену");
 			return false;
 		}
 		if (!manager().isWaitLobbyLoaded()) {
 			manager.loadWaitLobby();
-			gamer.sendTip(TextFormat.RED+"Лобби ожидания не доступно. Сообщите администратору");
+			gamer.sendTip(TextFormat.RED+"Лобби ожидания не доступно. Сообщи администратору");
 			return false;
 		}
 

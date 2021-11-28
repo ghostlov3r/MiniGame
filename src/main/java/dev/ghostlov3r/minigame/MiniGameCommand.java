@@ -2,6 +2,7 @@ package dev.ghostlov3r.minigame;
 
 import com.fasterxml.jackson.databind.node.IntNode;
 import dev.ghostlov3r.beengine.Beengine;
+import dev.ghostlov3r.beengine.Server;
 import dev.ghostlov3r.beengine.block.blocks.BlockSign;
 import dev.ghostlov3r.beengine.block.utils.DyeColor;
 import dev.ghostlov3r.beengine.form.CustomForm;
@@ -29,6 +30,7 @@ import java.nio.file.Path;
 import java.util.*;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 import java.util.stream.IntStream;
 
 public class MiniGameCommand extends LordCommand {
@@ -41,34 +43,35 @@ public class MiniGameCommand extends LordCommand {
 	}
 
 	@Override
-	public void execute(Gamer gamer, String[] args) {
+	public void execute(Gamer g, String[] args) {
+		MGGamer gamer = (MGGamer) g;
 		SimpleForm form = Form.simple();
 		form.title(Lord.instance.config().getBoldName());
 		form.button("Типы", p -> {
-			showTypes((MGGamer) gamer, null, null);
+			showTypes(gamer, null);
 		});
 		form.button("Карты", p -> {
-			showMaps((MGGamer) gamer);
+			showMaps(gamer);
 		});
 		form.button("Новая карта", p -> {
-			newMap((MGGamer) gamer, null, null);
+			newMap(gamer);
 		});
 		form.button("Арены", p -> {
-			showArenas((MGGamer) gamer);
+			showArenas(gamer);
 		});
-		form.button((((MGGamer)gamer).manager.tolerateOp ? "Запретить":"Разрешить")+" действия оператора", p -> {
-			((MGGamer) gamer).manager.tolerateOp = !((MGGamer) gamer).manager.tolerateOp;
+		form.button((manager.tolerateOp ? "Запретить":"Разрешить")+" действия оператора", p -> {
+			manager.tolerateOp = !manager.tolerateOp;
 			gamer.sendMessage(
-					((MGGamer) gamer).manager.tolerateOp
+					manager.tolerateOp
 							? (TextFormat.RED+"Небезопасные действия оператора разрешены")
 							: (TextFormat.GREEN+"Небезопасные действия оператора запрещены")
 			);
 		});
 		form.button("Спираль", p -> {
-			spiralSettings((MGGamer) gamer);
+			spiralSettings(gamer);
 		});
 		form.button("Сущности входа", p -> {
-			showJoinEntities((MGGamer) p);
+			showJoinEntities(gamer);
 		});
 		gamer.sendForm(form);
 	}
@@ -92,43 +95,7 @@ public class MiniGameCommand extends LordCommand {
 		gamer.sendForm(form);
 	}
 
-	public void spiralSettings (MGGamer gamer) {
-		MiniGameConfig c = manager.config();
-
-		gamer.sendForm(Form.simple()
-				.button("Переместить сюда", __ -> {
-					c.lobbyHelixPos = gamer.toVector();
-				})
-				.button("Настройки", __ -> {
-					gamer.sendForm(Form.custom()
-							.toggle("Спираль включена", c.lobbyHelixEnabled)
-							.input("Период спауна", "", String.valueOf(c.lobbyHelixSpawnPeriod))
-							.dropdown("Цвет", DyeColor.valueOf(c.lobbyHelixColor).ordinal(), Arrays.stream(DyeColor.values()).map(Enum::name).toList())
-							.input("Радиус", "", String.valueOf(c.lobbyHelixRadius))
-							.input("Шаг угла", "", String.valueOf(c.lobbyHelixAngleSpeed))
-							.input("Шаг Y", "", String.valueOf(c.lobbyHelixYSpeed))
-							.input("Период появления частицы", "", String.valueOf(c.lobbyHelixParticlePeriod))
-							.onSubmit((___, resp) -> {
-								c.lobbyHelixEnabled = resp.getToggle(0);
-								c.lobbyHelixSpawnPeriod = Integer.parseInt(resp.getInput(0));
-								c.lobbyHelixColor = resp.getDropdown(0).getOption();
-								c.lobbyHelixRadius = Float.parseFloat(resp.getInput(1));
-								c.lobbyHelixAngleSpeed = Float.parseFloat(resp.getInput(2));
-								c.lobbyHelixYSpeed = Float.parseFloat(resp.getInput(3));
-								c.lobbyHelixParticlePeriod = Integer.parseInt(resp.getInput(4));
-
-								if (c.lobbyHelixEnabled) {
-									manager.spawnHelix();
-								} else {
-									manager.despawnHelix();
-								}
-							})
-					);
-				})
-		);
-	}
-
-	public void showTypes (MGGamer gamer, String notif, String worldName) {
+	public void showTypes (MGGamer gamer, String notif) {
 		SimpleForm form = Form.simple();
 
 		if (notif != null) {
@@ -136,28 +103,27 @@ public class MiniGameCommand extends LordCommand {
 		}
 
 		form.button(TextFormat.DARK_GREEN+"Создать новый тип", __ -> {
-			newArenaTypeForm(gamer, worldName);
+			newArenaTypeForm(gamer);
 		});
 
 		manager.arenaTypes().values().forEach(type -> {
-			form.button(type.teamSlots() + "x" + type.teamCount(), p -> {
+			form.button(type.key(), p -> {
 				SimpleForm typePage = Form.simple();
-				typePage.title(type.teamSlots() + "x" + type.teamCount());
+				typePage.title(type.key());
 				typePage.content((type.teamSlots() == 1
 						? "Соло "+type.maxPlayers()+" игроков"
 						: (
-							type.teamCount() + " команд по "+type.teamSlots()+" игроков\n" +
-							"Цвета: "+String.join(", ",
-								type.colors().stream().map(color ->
-									Colors.asFormat(color)+color.name()+ TextFormat.RESET).toList())
-						)) + "\n\n" +
+							type.teamCount() + " команд по "+type.teamSlots()+" игроков\n"
+						)) +
+							(type.usesColors() ? "Цвета: "+String.join(", ",
+									type.colors().stream().map(color ->
+											Colors.asFormat(color)+color.name()+ TextFormat.RESET).toList()) : "") +
+								"\n\n" +
 								(type.maps().isEmpty() ?
 										TextFormat.RED+"Нет ни одной карты этого типа"
 										: TextFormat.GREEN+"Карт этого типа "+type.maps().size()+"шт.:") + "\n"
 						);
-				typePage.button(TextFormat.DARK_GREEN+"Использовать для создания карты", ___ -> {
-					newMap(gamer, type, worldName);
-				});
+
 				injectMapButtons(type, typePage);
 				gamer.sendForm(typePage);
 			});
@@ -166,9 +132,9 @@ public class MiniGameCommand extends LordCommand {
 		gamer.sendForm(form);
 	}
 
-	public void newArenaTypeForm (MGGamer gamer, String world) {
+	public void newArenaTypeForm (MGGamer gamer) {
 		newArenaTypeForm(gamer, 7, 1, 0, 1, 3, 0, 0, 6, 2,
-				false, null, world);
+				false, null);
 	}
 
 	public void newArenaTypeForm (MGGamer gamer,
@@ -182,7 +148,7 @@ public class MiniGameCommand extends LordCommand {
 								  int defGame,
 								  int defGameEnd,
 								  boolean defUseColors,
-								  String error, String world) {
+								  String error) {
 		gamer.sendForm(Form.custom()
 				.title("Новый тип арены")
 				.label((error != null ? TextFormat.RED + error : "")+"\n")
@@ -212,7 +178,7 @@ public class MiniGameCommand extends LordCommand {
 								resp.getStepSlider(6).getStepIndex(),
 								resp.getStepSlider(7).getStepIndex(),
 								resp.getStepSlider(8).getStepIndex(),
-								resp.getToggle(0), err, world
+								resp.getToggle(0), err
 						);
 					};
 					int teamCount = Integer.parseInt(resp.getStepSlider(0).getOption());
@@ -251,22 +217,7 @@ public class MiniGameCommand extends LordCommand {
 					type.save();
 					manager.updateTypes();
 
-					if (world != null) {
-						gamer.sendForm(Form.modal().content(TextFormat.GREEN+"Новый тип '"+key+"' добавлен успешно!\n"
-								+TextFormat.RESET+"Использовать для создания карты в мире '"+world+"'?")
-								.button1(TextFormat.GREEN+"ДА")
-								.button2(TextFormat.RED+"НЕТ")
-								.onSubmit((___, use) -> {
-									if (use) {
-										newMap(gamer, type, world);
-									} else {
-										showTypes(gamer, "Новый тип '"+key+"' добавлен успешно!", world);
-									}
-								})
-						);
-					} else {
-						showTypes(gamer, "Новый тип '"+key+"' добавлен успешно!", world);
-					}
+					showTypes(gamer, "Новый тип '"+key+"' добавлен успешно!");
 				})
 		);
 	}
@@ -304,7 +255,7 @@ public class MiniGameCommand extends LordCommand {
 				? t.maps()
 				: manager.maps().values())
 				.forEach(map -> {
-					form.button(map.key() + " | " + map.displayName + " | "+map.type(), p -> {
+					form.button(map.key() + " | " + map.displayName + " | "+map.types(), p -> {
 
 						SimpleForm mapPage = Form.simple();
 						mapPage.content("Служебное название: "+map.key()+"\nОтображаемое название: "+map.displayName+"\nНазвание мира: "+map.worldName+"\n");
@@ -333,75 +284,46 @@ public class MiniGameCommand extends LordCommand {
 	}
 
 	@SneakyThrows
-	private void newMap (MGGamer gamer, ArenaType type, String world) {
+	private void newMap (MGGamer gamer) {
 		SimpleForm form = Form.simple();
+
+		Predicate<String> filter = name -> !Set.of(World.defaultWorld().uniqueName(), manager.waitLobby().uniqueName(), Lord.auth.world.uniqueName()).contains(name)
+				&& manager.maps().values().stream().noneMatch(map -> map.worldName.equals(name));
+
+		Consumer<String> addToList = name -> {
+			if (!filter.test(name)) {
+				return;
+			}
+
+			form.button(name + (name.equals(gamer.world().uniqueName()) ? " (Вы здесь)" : ""), p -> {
+
+				if (name.equals(gamer.world().uniqueName())) {
+					gamer.manager.startWizard(gamer);
+				}
+				else {
+					World.load(name, World.LoadOption.ASYNC).onResolve(promise -> {
+						gamer.teleport(promise.result().getSpawnPosition(), () -> {
+							Server.dispatchCommand(gamer, "/admin tpb");
+							Scheduler.delay(5, () -> {
+								gamer.manager.startWizard(gamer);
+							});
+						});
+					});
+				}
+			});
+		};
+
 		form.content(" Выберите мир для создания карты\n");
 
-		World gamerWorld = gamer.world();
-		List<String> names = new ArrayList<>();
+		addToList.accept(gamer.world().uniqueName());
 
 		Files.list(Beengine.WORLDS_PATH)
 				.map(Path::getFileName)
 				.map(Objects::toString)
-				.forEach(worldName -> {
-					boolean add = true;
+				.filter(name -> !name.equals(gamer.world().uniqueName()))
+				.forEach(addToList);
 
-					if (worldName.equals(World.defaultWorld().uniqueName()) || worldName.equals(manager.waitLobby().uniqueName())) {
-						add = false;
-					}
-					else {
-						for (GameMap map : manager.maps().values()) {
-							if (map.worldName.equals(worldName)) {
-								add = false;
-								break;
-							}
-						}
-					}
-
-					if (add) {
-						names.add(worldName);
-						form.button(worldName + (worldName.equals(gamerWorld.uniqueName()) ? " (Вы сейчас в этом мире)" : ""), p -> {
-							World.load(worldName, World.LoadOption.ASYNC).onResolve(promise -> {
-								Runnable action = () -> {
-									if (type != null) {
-										if (gamerWorld != promise.result()) {
-											Scheduler.delay(20, () -> {
-												gamer.manager.startWizard(gamer, type);
-											});
-										} else {
-											gamer.manager.startWizard(gamer, type);
-										}
-									}
-									else {
-										showTypes(gamer, "Выберите тип для создания карты", worldName);
-									}
-								};
-								if (worldName.equals(gamerWorld.uniqueName())) {
-									action.run();
-								} else {
-									p.teleport(promise.result().getSpawnPosition(), action);
-								}
-							});
-						});
-					}
-				});
-
-		if (world == null) {
-			gamer.sendForm(form);
-		} else {
-			boolean add = true;
-			for (GameMap map : manager.maps().values()) {
-				if (map.worldName.equals(world)) {
-					add = false;
-					break;
-				}
-			}
-			if (add) {
-				form.handleResponse(gamer, new IntNode(names.indexOf(world)));
-			} else {
-				gamer.sendForm(form);
-			}
-		}
+		gamer.sendForm(form);
 	}
 
 	private void showArenas (MGGamer gamer) {
@@ -465,5 +387,41 @@ public class MiniGameCommand extends LordCommand {
 		}
 
 		gamer.sendForm(form);
+	}
+
+	public void spiralSettings (MGGamer gamer) {
+		MiniGameConfig c = manager.config();
+
+		gamer.sendForm(Form.simple()
+				.button("Переместить сюда", __ -> {
+					c.lobbyHelixPos = gamer.toVector();
+				})
+				.button("Настройки", __ -> {
+					gamer.sendForm(Form.custom()
+							.toggle("Спираль включена", c.lobbyHelixEnabled)
+							.input("Период спауна", "", String.valueOf(c.lobbyHelixSpawnPeriod))
+							.dropdown("Цвет", DyeColor.valueOf(c.lobbyHelixColor).ordinal(), Arrays.stream(DyeColor.values()).map(Enum::name).toList())
+							.input("Радиус", "", String.valueOf(c.lobbyHelixRadius))
+							.input("Шаг угла", "", String.valueOf(c.lobbyHelixAngleSpeed))
+							.input("Шаг Y", "", String.valueOf(c.lobbyHelixYSpeed))
+							.input("Период появления частицы", "", String.valueOf(c.lobbyHelixParticlePeriod))
+							.onSubmit((___, resp) -> {
+								c.lobbyHelixEnabled = resp.getToggle(0);
+								c.lobbyHelixSpawnPeriod = Integer.parseInt(resp.getInput(0));
+								c.lobbyHelixColor = resp.getDropdown(0).getOption();
+								c.lobbyHelixRadius = Float.parseFloat(resp.getInput(1));
+								c.lobbyHelixAngleSpeed = Float.parseFloat(resp.getInput(2));
+								c.lobbyHelixYSpeed = Float.parseFloat(resp.getInput(3));
+								c.lobbyHelixParticlePeriod = Integer.parseInt(resp.getInput(4));
+
+								if (c.lobbyHelixEnabled) {
+									manager.spawnHelix();
+								} else {
+									manager.despawnHelix();
+								}
+							})
+					);
+				})
+		);
 	}
 }

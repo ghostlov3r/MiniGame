@@ -19,6 +19,10 @@ public class GameMap extends DiskEntry<String> {
 
 	public String displayName;
 
+	public int minSlots = 1;
+
+	public int maxSlots = 1;
+
 	@JsonIgnore
 	public List<MapTeam> teams = new ArrayList<>();
 
@@ -46,12 +50,16 @@ public class GameMap extends DiskEntry<String> {
 		return teamClass.getConstructor().newInstance();
 	}
 
-	public String type () {
-		return teamSlots() + "x" + teams.size();
-	}
-
-	public int teamSlots () {
-		return teams.get(0).slots();
+	public List<String> types () {
+		if (minSlots == maxSlots) {
+			return List.of(minSlots + "x" + teams.size());
+		} else {
+			var list = new ArrayList<String>(maxSlots - minSlots + 1);
+			for (int slots = minSlots; slots <= maxSlots; ++slots) {
+				list.add(slots + "x" + teams.size());
+			}
+			return list;
+		}
 	}
 
 	@SneakyThrows

@@ -136,11 +136,11 @@ public class Team <TArena extends Arena, TGamer extends MGGamer> {
 	}
 
 	final void onPreGame() {
+		this.gameCtx = instantiateGameContext();
 		onPreGame0();
 	}
 
 	protected void onPreGame0() {
-		this.gameCtx = instantiateGameContext();
 		// NOOP
 	}
 
