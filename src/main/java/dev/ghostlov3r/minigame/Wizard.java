@@ -8,6 +8,7 @@ import dev.ghostlov3r.beengine.form.element.Element;
 import dev.ghostlov3r.beengine.form.element.ElementToggle;
 import dev.ghostlov3r.beengine.item.Items;
 import dev.ghostlov3r.beengine.player.GameMode;
+import dev.ghostlov3r.beengine.scheduler.Scheduler;
 import dev.ghostlov3r.beengine.utils.TextFormat;
 import dev.ghostlov3r.beengine.world.World;
 import dev.ghostlov3r.minigame.data.ArenaType;
@@ -19,6 +20,8 @@ import it.unimi.dsi.fastutil.objects.ReferenceOpenHashSet;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.IntConsumer;
 
 public class Wizard<TGameMap extends GameMap, TMapTeam extends MapTeam> {
 
@@ -165,15 +168,27 @@ public class Wizard<TGameMap extends GameMap, TMapTeam extends MapTeam> {
 		}
 	}
 
+	protected void onSlotSelect (int slot, Runnable action) {
+		var holder = new AtomicReference<IntConsumer>();
+		IntConsumer listener = __ -> {
+			if (gamer.inventory().itemInHandIndex() == slot) {
+				action.run();
+				Scheduler.delay(1, () -> gamer.inventory().itemInHandIndexChangeListeners().remove(holder.get()));
+				gamer.inventory().setItemInHandIndex(0);
+			}
+		};
+		holder.set(listener);
+		gamer.inventory().itemInHandIndexChangeListeners().add(listener);
+	}
+
 	protected boolean canFinishTeamCreation (TMapTeam team) {
 		if (team.locations().size() < maxSlots()) {
 			gamer.sendMessage("Встаньте на "+(team.locations().size()+1)+" точку команды "+nameOfNewTeam()+" и кликните по воздуху");
-			gamer.onUse = () -> {
+			onSlotSelect(8, () -> {
 				team.locations().add(WeakLocation.from(gamer));
 				gamer.sendMessage("Отлично, точка отмечена");
-				gamer.onUse = null;
 				continueCreateTeam(team);
-			};
+			});
 			return false;
 		}
 		return true;

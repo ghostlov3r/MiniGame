@@ -194,9 +194,12 @@ public class MGGamer <TArena extends Arena, TTeam extends Team> extends Gamer {
 		} else {
 			deadGamer = null;
 		}
-		setGamemode(GameMode.SPECTATOR);
+
+		getDrops().forEach(drop -> world.dropItem(this, drop));
 		inventory.clear();
 		armorInventory.clear();
+
+		setGamemode(GameMode.SPECTATOR);
 
 		Arena arena = arena();
 		Scheduler.delay(1, () -> {
