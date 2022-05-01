@@ -1,12 +1,12 @@
 package dev.ghostlov3r.minigame.data;
 
+import beengine.util.DiskEntry;
+import beengine.util.DiskMap;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import dev.ghostlov3r.beengine.utils.DiskEntry;
-import dev.ghostlov3r.beengine.utils.DiskMap;
 import lombok.SneakyThrows;
 
 import java.nio.file.Files;

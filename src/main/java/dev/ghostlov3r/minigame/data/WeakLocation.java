@@ -1,9 +1,9 @@
 package dev.ghostlov3r.minigame.data;
 
-import dev.ghostlov3r.beengine.block.Position;
-import dev.ghostlov3r.beengine.entity.util.Location;
-import dev.ghostlov3r.beengine.world.World;
-import dev.ghostlov3r.math.Vector3;
+import beengine.block.Position;
+import beengine.entity.util.Location;
+import beengine.util.math.Vector3;
+import beengine.world.World;
 import lombok.AllArgsConstructor;
 import lombok.NoArgsConstructor;
 

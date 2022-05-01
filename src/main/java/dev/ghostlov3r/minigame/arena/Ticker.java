@@ -1,6 +1,6 @@
 package dev.ghostlov3r.minigame.arena;
 
-import dev.ghostlov3r.beengine.scheduler.Task;
+import beengine.scheduler.Task;
 import lombok.Getter;
 import lombok.experimental.Accessors;
 

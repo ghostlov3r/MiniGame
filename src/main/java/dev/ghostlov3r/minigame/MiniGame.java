@@ -1,26 +1,26 @@
 package dev.ghostlov3r.minigame;
 
-import dev.ghostlov3r.beengine.Beengine;
-import dev.ghostlov3r.beengine.Server;
-import dev.ghostlov3r.beengine.block.Position;
-import dev.ghostlov3r.beengine.block.blocks.BlockSign;
-import dev.ghostlov3r.beengine.event.EventManager;
-import dev.ghostlov3r.beengine.scheduler.AsyncTask;
-import dev.ghostlov3r.beengine.scheduler.Scheduler;
-import dev.ghostlov3r.beengine.scheduler.TaskControl;
-import dev.ghostlov3r.beengine.utils.DiskMap;
-import dev.ghostlov3r.beengine.world.Particle;
-import dev.ghostlov3r.beengine.world.World;
-import dev.ghostlov3r.beengine.world.format.io.WorldProvider;
-import dev.ghostlov3r.common.concurrent.Promise;
-import dev.ghostlov3r.math.FRand;
-import dev.ghostlov3r.math.Vector3;
+import beengine.Beengine;
+import beengine.Server;
+import beengine.block.Position;
+import beengine.block.blocks.BlockSign;
+import beengine.event.EventManager;
+import beengine.scheduler.AsyncTask;
+import beengine.scheduler.Scheduler;
+import beengine.scheduler.TaskControl;
+import beengine.util.DiskMap;
+import beengine.util.concurrent.Promise;
+import beengine.util.math.FRand;
+import beengine.util.math.Vector3;
+import beengine.world.Particle;
+import beengine.world.World;
+import beengine.world.format.io.WorldProvider;
 import dev.ghostlov3r.minigame.arena.Arena;
 import dev.ghostlov3r.minigame.arena.ArenaState;
 import dev.ghostlov3r.minigame.arena.Team;
 import dev.ghostlov3r.minigame.data.*;
-import it.unimi.dsi.fastutil.ints.Int2ReferenceMap;
-import it.unimi.dsi.fastutil.ints.Int2ReferenceOpenHashMap;
+import fastutil.map.Int2RefMap;
+import fastutil.map.impl.Int2RefHashMap;
 import lombok.Setter;
 import lombok.SneakyThrows;
 import lombok.experimental.Accessors;
@@ -43,7 +43,7 @@ import java.util.*;
 public class MiniGame
 {
 	private DiskMap<String, GameMap> maps;
-	private Int2ReferenceMap<Arena> arenas;
+	private Int2RefMap<Arena> arenas;
 	private DiskMap<Integer, ArenaData> instances;
 	private DiskMap<String, ArenaType> arenaTypes;
 	private Map<Long, Integer> stateSigns;
@@ -114,7 +114,7 @@ public class MiniGame
 
 		ArenaState.init(config);
 
-		arenas = new Int2ReferenceOpenHashMap<>();
+		arenas = new Int2RefHashMap<>();
 		stateSigns = new HashMap<>();
 
 		arenaTypes = new DiskMap<>(dataPath.resolve("arena_types"), (Class<ArenaType>) arenaTypeType);
@@ -454,7 +454,7 @@ public class MiniGame
 		private Class<? extends Wizard> wizardType = Wizard.class;
 		private Class<? extends MGGamer> gamerType = MGGamer.class;
 		private Class<? extends MiniGameListener> listenerType = MiniGameListener.class;
-		private Path dataPath = Beengine.PLUGINS_DATA_PATH.resolve("game_data");
+		private Path dataPath = MG.instance.dataPath();
 
 		public MiniGame build () {
 			return new MiniGame(

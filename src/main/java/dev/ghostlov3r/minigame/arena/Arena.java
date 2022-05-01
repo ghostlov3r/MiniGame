@@ -1,25 +1,27 @@
 package dev.ghostlov3r.minigame.arena;
 
-import dev.ghostlov3r.beengine.Server;
-import dev.ghostlov3r.beengine.block.blocks.BlockSign;
-import dev.ghostlov3r.beengine.block.utils.SignText;
-import dev.ghostlov3r.beengine.entity.obj.EntityLightning;
-import dev.ghostlov3r.beengine.event.entity.EntityDamageByEntityEvent;
-import dev.ghostlov3r.beengine.event.entity.EntityDamageEvent;
-import dev.ghostlov3r.beengine.player.GameMode;
-import dev.ghostlov3r.beengine.scheduler.Scheduler;
-import dev.ghostlov3r.beengine.utils.TextFormat;
-import dev.ghostlov3r.beengine.world.Sound;
-import dev.ghostlov3r.beengine.world.World;
-import dev.ghostlov3r.beengine.world.World.LoadOption;
-import dev.ghostlov3r.log.Logger;
-import dev.ghostlov3r.math.FRand;
+import beengine.Server;
+import beengine.block.blocks.BlockSign;
+import beengine.block.utils.SignText;
+import beengine.entity.obj.EntityFireworksRocket;
+import beengine.entity.obj.EntityLightning;
+import beengine.entity.util.Location;
+import beengine.event.entity.EntityDamageByEntityEvent;
+import beengine.event.entity.EntityDamageEvent;
+import beengine.player.GameMode;
+import beengine.scheduler.Scheduler;
+import beengine.scheduler.Task;
+import beengine.util.TextFormat;
+import beengine.util.log.Logger;
+import beengine.util.math.FRand;
+import beengine.world.Sound;
+import beengine.world.World;
 import dev.ghostlov3r.minigame.MGGamer;
 import dev.ghostlov3r.minigame.MiniGame;
 import dev.ghostlov3r.minigame.data.ArenaType;
 import dev.ghostlov3r.minigame.data.GameMap;
-import it.unimi.dsi.fastutil.objects.Reference2IntMap;
-import it.unimi.dsi.fastutil.objects.Reference2IntOpenHashMap;
+import fastutil.map.Ref2IntMap;
+import fastutil.map.impl.Ref2IntHashMap;
 import lombok.Getter;
 import lombok.SneakyThrows;
 import lombok.experimental.Accessors;
@@ -163,7 +165,7 @@ public class Arena <TTeam extends Team, TGamer extends MGGamer>
 					gamer.xpManager().setXpAndProgressNoEvent(0, 0);
 					gamer.onWaitEnd();
 				});
-				World.load(map.worldName, worldFactory(), LoadOption.ASYNC, LoadOption.UNIDENTIFIABLE_CLONE).onResolve(promise -> {
+				World.load(map.worldName, worldFactory(), World.LoadOption.ASYNC, World.LoadOption.UNIDENTIFIABLE_CLONE).onResolve(promise -> {
 					gameWorld = promise.result();
 					gameWorld.setDoWeatherCycle(false);
 					gameWorld.setThundering(false);
@@ -224,7 +226,14 @@ public class Arena <TTeam extends Team, TGamer extends MGGamer>
 							gamer.broadcastSound(Sound.NOTE(Sound.NoteInstrument.PIANO, 70), gamer.asList());
 						});
 					}
+					winData.winners().forEach(winner -> {
+						if (winData.expBonus > 0) {
+							winner.addRankExp(winData.expBonus);
+							winner.sendMessage(">> Получено "+TextFormat.AQUA+winData.expBonus+ TextFormat.RESET+" опыта за победу");
+						}
+					});
 				});
+				doWinCosmeticActions();
 				onGameEnd();
 				teams.forEach(Team::onGameEnd);
 				gamers.forEach(MGGamer::onGameEnd);
@@ -234,6 +243,26 @@ public class Arena <TTeam extends Team, TGamer extends MGGamer>
 			ticker.refreshSecond();
 		}
 		updateSignState();
+	}
+
+	protected void doWinCosmeticActions () {
+		winData.winners().forEach(winner -> {
+			Scheduler.delayedRepeat(30, 30, new Task() {
+				@Override
+				public void run() {
+					if (winner.arenaState() != ArenaState.GAME_END) {
+						cancel();
+						return;
+					}
+					Location winnerLoc = winner.toLocation();
+					winnerLoc.x += FRand.nextInt(-6, 6);
+					winnerLoc.z += FRand.nextInt(-6, 6);
+					var rocket = new EntityFireworksRocket(winnerLoc, MGGamer.rewardFirework);
+					rocket.setLifeTime(FRand.nextInt(10, 25));
+					rocket.spawn();
+				}
+			});
+		});
 	}
 
 	protected World.Factory worldFactory () {
@@ -269,7 +298,7 @@ public class Arena <TTeam extends Team, TGamer extends MGGamer>
 	}
 
 	protected void chooseMap () {
-		var votes = new Reference2IntOpenHashMap<GameMap>();
+		var votes = new Ref2IntHashMap<GameMap>();
 		gamers.forEach(gamer -> {
 			if (gamer.vote != null) {
 				votes.addTo(gamer.vote, 1);
@@ -278,7 +307,7 @@ public class Arena <TTeam extends Team, TGamer extends MGGamer>
 		GameMap best = null;
 		if (!votes.isEmpty()) {
 			int max = 0;
-			for (Reference2IntMap.Entry<GameMap> entry : votes.reference2IntEntrySet()) {
+			for (Ref2IntMap.Entry<GameMap> entry : votes.reference2IntEntrySet()) {
 				if (entry.getIntValue() > max) {
 					max = entry.getIntValue();
 					best = entry.getKey();
@@ -493,6 +522,7 @@ public class Arena <TTeam extends Team, TGamer extends MGGamer>
 		} else {
 			broadcast(gamer.name() + " присоединился [" + gamers.size() + "/" + type.maxPlayers() + "]");
 		}
+		gamers.forEach(g -> g.scoreUpdater.updateArenaPlayerCount());
 
 		if (isFull()) {
 			setState(ArenaState.WAIT_END);
@@ -508,7 +538,7 @@ public class Arena <TTeam extends Team, TGamer extends MGGamer>
 			spectators.add(gamer);
 			gamer.setGamemode(GameMode.SPECTATOR);
 			if (gamer.world() != gameWorld) {
-				gamer.teleport(gameWorld.getSpawnPosition());
+				gamer.teleport(gameWorld.getSpawnPosition(), gamer::checkViewDistance);
 			}
 			gamer.spectator = new MGGamer.Spectator(this, type);
 			gamer.invUpdater.onSpectate();

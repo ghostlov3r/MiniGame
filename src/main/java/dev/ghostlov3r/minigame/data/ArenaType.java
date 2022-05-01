@@ -1,9 +1,9 @@
 package dev.ghostlov3r.minigame.data;
 
+import beengine.block.utils.DyeColor;
+import beengine.util.DiskEntry;
+import beengine.util.DiskMap;
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import dev.ghostlov3r.beengine.block.utils.DyeColor;
-import dev.ghostlov3r.beengine.utils.DiskEntry;
-import dev.ghostlov3r.beengine.utils.DiskMap;
 import dev.ghostlov3r.minigame.Colors;
 import dev.ghostlov3r.minigame.arena.ArenaState;
 

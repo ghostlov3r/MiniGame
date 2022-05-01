@@ -1,9 +1,9 @@
 package dev.ghostlov3r.minigame;
 
-import dev.ghostlov3r.beengine.block.BlockIds;
-import dev.ghostlov3r.beengine.utils.config.Config;
-import dev.ghostlov3r.beengine.utils.config.Name;
-import dev.ghostlov3r.math.Vector3;
+import beengine.block.BlockIds;
+import beengine.util.config.Config;
+import beengine.util.config.Name;
+import beengine.util.math.Vector3;
 
 /**
  * Базовая конфигурация миниигры
@@ -40,6 +40,9 @@ public class MiniGameConfig extends Config {
 	public int randomJoinBlockId = BlockIds.END_PORTAL;
 
 	public boolean enableHungerInGame = true;
+
+	public int defaultGameExpBonus = 10;
+	public int defaultWinExpBonus = 50;
 
 	public boolean lobbyHelixEnabled = false;
 	public Vector3 lobbyHelixPos = new Vector3();

@@ -1,8 +1,8 @@
 package dev.ghostlov3r.minigame.arena;
 
-import dev.ghostlov3r.beengine.block.utils.DyeColor;
-import dev.ghostlov3r.beengine.entity.util.Location;
-import dev.ghostlov3r.beengine.utils.TextFormat;
+import beengine.block.utils.DyeColor;
+import beengine.entity.util.Location;
+import beengine.util.TextFormat;
 import dev.ghostlov3r.minigame.Colors;
 import dev.ghostlov3r.minigame.MGGamer;
 import lombok.Getter;

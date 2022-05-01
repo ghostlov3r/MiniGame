@@ -1,6 +1,6 @@
 package dev.ghostlov3r.minigame.arena;
 
-import dev.ghostlov3r.common.Utils;
+import beengine.util.Utils;
 import dev.ghostlov3r.minigame.MGGamer;
 import lombok.Getter;
 import lombok.experimental.Accessors;
@@ -17,10 +17,13 @@ public class WinData {
 
 	private final List<MGGamer> winners;
 
+	public int expBonus;
+
 	public WinData(Arena arena, Team winnerTeam) {
+		expBonus = arena.manager.config().defaultWinExpBonus;
 		this.arena = arena;
 		this.winnerTeam = winnerTeam;
-		winners = winnerTeam.gamers().toList();
+		winners = winnerTeam != null ? winnerTeam.gamers().toList() : List.of();
 	}
 
 	public MGGamer firstWinner () {

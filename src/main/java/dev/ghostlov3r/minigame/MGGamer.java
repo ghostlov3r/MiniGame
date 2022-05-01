@@ -1,39 +1,43 @@
 package dev.ghostlov3r.minigame;
 
-import dev.ghostlov3r.beengine.Beengine;
-import dev.ghostlov3r.beengine.Server;
-import dev.ghostlov3r.beengine.block.Blocks;
-import dev.ghostlov3r.beengine.data.bedrock.LegacyItemIdToStringIdMap;
-import dev.ghostlov3r.beengine.entity.util.EntitySpawnHelper;
-import dev.ghostlov3r.beengine.event.block.BlockBreakEvent;
-import dev.ghostlov3r.beengine.event.block.BlockPlaceEvent;
-import dev.ghostlov3r.beengine.event.inventory.InventoryTransactionEvent;
-import dev.ghostlov3r.beengine.event.player.PlayerItemHeldEvent;
-import dev.ghostlov3r.beengine.form.Form;
-import dev.ghostlov3r.beengine.form.SimpleForm;
-import dev.ghostlov3r.beengine.inventory.ArmorInventory;
-import dev.ghostlov3r.beengine.inventory.PlayerInventory;
-import dev.ghostlov3r.beengine.item.Item;
-import dev.ghostlov3r.beengine.item.ItemIds;
-import dev.ghostlov3r.beengine.item.Items;
-import dev.ghostlov3r.beengine.player.GameMode;
-import dev.ghostlov3r.beengine.player.Player;
-import dev.ghostlov3r.beengine.player.PlayerInfo;
-import dev.ghostlov3r.beengine.scheduler.Scheduler;
-import dev.ghostlov3r.beengine.scheduler.Task;
-import dev.ghostlov3r.beengine.utils.TextFormat;
-import dev.ghostlov3r.beengine.world.Sound;
-import dev.ghostlov3r.beengine.world.World;
-import dev.ghostlov3r.minecraft.MinecraftSession;
+import beengine.Beengine;
+import beengine.Server;
+import beengine.block.Blocks;
+import beengine.block.utils.DyeColor;
+import beengine.entity.obj.EntityFireworksRocket;
+import beengine.entity.util.EntitySpawnHelper;
+import beengine.event.block.BlockBreakEvent;
+import beengine.event.block.BlockPlaceEvent;
+import beengine.event.inventory.InventoryTransactionEvent;
+import beengine.event.player.PlayerItemHeldEvent;
+import beengine.form.Form;
+import beengine.form.SimpleForm;
+import beengine.inventory.ArmorInventory;
+import beengine.inventory.PlayerInventory;
+import beengine.item.Item;
+import beengine.item.Items;
+import beengine.item.items.ItemFireworks;
+import beengine.item.items.ItemFireworks.FireworkExplosion;
+import beengine.item.items.ItemFireworks.FireworkExplosion.ExplosionType;
+import beengine.minecraft.MinecraftSession;
+import beengine.nbt.NbtMap;
+import beengine.player.GameMode;
+import beengine.player.Player;
+import beengine.player.PlayerInfo;
+import beengine.scheduler.Scheduler;
+import beengine.scheduler.Task;
+import beengine.util.TextFormat;
+import beengine.world.Sound;
+import beengine.world.World;
 import dev.ghostlov3r.minigame.arena.Arena;
 import dev.ghostlov3r.minigame.arena.ArenaState;
 import dev.ghostlov3r.minigame.arena.Team;
 import dev.ghostlov3r.minigame.data.GameMap;
-import dev.ghostlov3r.nbt.NbtMap;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.experimental.Accessors;
 import lord.core.Lord;
+import lord.core.game.rank.Rank;
 import lord.core.gamer.Gamer;
 import lord.core.union.UnionServer;
 
@@ -121,7 +125,6 @@ public class MGGamer <TArena extends Arena, TTeam extends Team> extends Gamer {
 
 		public int kills;
 		public int deaths;
-		public int wins;
 
 		public MGGamer gamer () {
 			return MGGamer.this;
@@ -137,6 +140,33 @@ public class MGGamer <TArena extends Arena, TTeam extends Team> extends Gamer {
 	public static class Spectator {
 		public Arena arena;
 		public SpectatorType type;
+	}
+
+	public int calculateReward () {
+		int reward = 0;
+		if (gameCtx != null) {
+			reward += gameCtx.kills * 5;
+		}
+		if (arena() != null) {
+			//if (arena().state() == ArenaState.GAME) {
+			int diff;
+			if (arena().ticker() != null) {
+				int duration = arena().type().durationOfState(ArenaState.GAME);
+				int current = arena().ticker().second();
+				diff = duration - current;
+			} else {
+				diff = Integer.MAX_VALUE;
+			}
+			if (diff > 15) {
+				reward += 1;
+
+				if (diff > 30) {
+					reward += 4;
+				}
+			}
+			//}
+		}
+		return reward;
 	}
 
 	/* ======================================================================================= */
@@ -177,6 +207,14 @@ public class MGGamer <TArena extends Arena, TTeam extends Team> extends Gamer {
 		leaveArena(true);
 		arena.joinAsSpectator(this, SpectatorType.AFTER_DROPOUT);
 		onDropOut0();
+	}
+
+	public void giveGameReward () {
+		int reward = calculateReward();
+		if (reward > 0) {
+			addRankExp(reward);
+			sendMessage(">> Получено "+ TextFormat.AQUA+reward+ TextFormat.RESET+" опыта за игру");
+		}
 	}
 
 	public void dieWaitAndRespawn () {
@@ -297,7 +335,7 @@ public class MGGamer <TArena extends Arena, TTeam extends Team> extends Gamer {
 	/* ======================================================================================= */
 
 	public void goToLobby () {
-		teleport(World.defaultWorld().getSpawnPosition());
+		teleport(World.defaultWorld().getSpawnPosition(), this::checkViewDistance);
 		onLobbyJoin();
 	}
 
@@ -415,6 +453,9 @@ public class MGGamer <TArena extends Arena, TTeam extends Team> extends Gamer {
 		if (arena() == null) {
 			return; // да и пох
 		}
+		if (dropOut) {
+			giveGameReward();
+		}
 		Team team = this.team;
 		arena().gamers().remove(this);
 
@@ -458,10 +499,6 @@ public class MGGamer <TArena extends Arena, TTeam extends Team> extends Gamer {
 		onStatePreGame0();
 	}
 
-	public void teleportToGameWorld () {
-		teleport(team.spawnLocationOf(this));
-	}
-
 	protected void onStatePreGame0() {
 		// NOOP
 	}
@@ -474,6 +511,11 @@ public class MGGamer <TArena extends Arena, TTeam extends Team> extends Gamer {
 			hungerManager().setEnabled(true);
 		}
 		setGamemode(modeInGame());
+		if (arena().type().teamSlots() == 1) {
+			++soloGames;
+		} else {
+			++teamGames;
+		}
 		onGameStart0();
 	}
 
@@ -489,11 +531,6 @@ public class MGGamer <TArena extends Arena, TTeam extends Team> extends Gamer {
 	}
 
 	protected void onGameEnd0() {
-		if (arena().type().teamSlots() == 1) {
-			++soloGames;
-		} else {
-			++teamGames;
-		}
 		if (arena().winData().winners().contains(this)) {
 			if (arena().type().teamSlots() == 1) {
 				++soloWins;
@@ -503,12 +540,47 @@ public class MGGamer <TArena extends Arena, TTeam extends Team> extends Gamer {
 		}
 	}
 
+	protected int realDist = Integer.MIN_VALUE;
+
+	@Override
+	public void setViewDistance(int distance) {
+		if (world == manager.waitLobby()) {
+			realDist = distance;
+			if (distance > 5) {
+				distance = 5;
+			}
+		}
+		else if (world == World.defaultWorld()) {
+			realDist = distance;
+			if (distance > 10) {
+				distance = 10;
+			}
+		}
+		super.setViewDistance(distance);
+	}
+
+	public void checkViewDistance () {
+		int real = realDist;
+		if (real != Integer.MIN_VALUE) {
+			realDist = Integer.MIN_VALUE;
+			setViewDistance(real);
+		}
+		else {
+			setViewDistance(viewDistance());
+		}
+	}
+
 	public void teleportToWaitLobby () {
 		teleport(manager.waitLobby().getSpawnPosition(), () -> {
 			broadcastSound(Sound.ENDERMAN_TELEPORT, asList());
 			setFlying(false);
 			setAllowFlight(false);
+			checkViewDistance();
 		});
+	}
+
+	public void teleportToGameWorld () {
+		teleport(team.spawnLocationOf(this), this::checkViewDistance);
 	}
 
 	public final void afterGameEnd() {
@@ -552,6 +624,43 @@ public class MGGamer <TArena extends Arena, TTeam extends Team> extends Gamer {
 		}
 	}
 
+	@Override
+	public void setGoldMoney(int goldMoney) {
+		super.setGoldMoney(goldMoney);
+		if (inLobby()) {
+			scoreUpdater.showGoldBalance();
+		}
+	}
+
+	@Override
+	public void setSilverMoney(int silverMoney) {
+		super.setSilverMoney(silverMoney);
+		if (inLobby()) {
+			scoreUpdater.showSilverBalance();
+		}
+	}
+
+	public static ItemFireworks rewardFirework;
+
+	static {
+		var expl = new FireworkExplosion();
+		expl.addColor(DyeColor.RED);
+		expl.addFade(DyeColor.YELLOW);
+		expl.type(ExplosionType.LARGE_BALL);
+		rewardFirework = Items.FIREWORKS();
+		rewardFirework.addExplosion(expl);
+	}
+
+	@Override
+	protected void actuallyGetRewardFor(Rank rank) {
+		super.actuallyGetRewardFor(rank);
+		var rocket = new EntityFireworksRocket(this.withY(eyePos().y), rewardFirework);
+		rocket.setSilent(true);
+		rocket.setLifeTime(1);
+		rocket.spawn();
+		rocket.setSilent(false);
+	}
+
 	public class ScoreUpdater {
 		public static int GOLD_LINE = 1;
 		public static int SILVER_LINE = 2;
@@ -571,11 +680,11 @@ public class MGGamer <TArena extends Arena, TTeam extends Team> extends Gamer {
 		}
 
 		protected void showGoldBalance () {
-			score().set(GOLD_LINE, " Золото: " + TextFormat.YELLOW+money);
+			score().set(GOLD_LINE, " Золото: " + TextFormat.YELLOW+goldMoney()+' '+'◉');
 		}
 
 		protected void showSilverBalance () {
-			score().set(SILVER_LINE, " Серебро: " + TextFormat.AQUA+money);
+			score().set(SILVER_LINE, " Серебро: " + TextFormat.AQUA+silverMoney()+' '+'◉');
 		}
 
 		public void onLocalOnlineCountChange(int newCount) {
@@ -710,7 +819,22 @@ public class MGGamer <TArena extends Arena, TTeam extends Team> extends Gamer {
 				// if (server.isOnline) {
 				// 	text += TextFormat.YELLOW+" ("+server.onlineCount+" игроков)";
 				// }
-				form.button(server.name, "url", "textures/items/"+ LegacyItemIdToStringIdMap.getInstance().legacyToString(ItemIds.ENDER_PEARL) +".png", __ -> {
+				form.button(text, "path", "textures/items/compass", __ -> {
+					unionTransfer(server);
+				});
+				form.button(text, "path", "textures/items/compass.png", __ -> {
+					unionTransfer(server);
+				});
+				form.button(text, "path", "textures/items/minecraft:compass.png", __ -> {
+					unionTransfer(server);
+				});
+				form.button(text, "path", "textures/items/minecraft:compass", __ -> {
+					unionTransfer(server);
+				});
+				form.button(text, "path", "./textures/items/compass", __ -> {
+					unionTransfer(server);
+				});
+				form.button(text, "path", "./textures/items/compass.png", __ -> {
 					unionTransfer(server);
 				});
 			}
@@ -905,9 +1029,9 @@ public class MGGamer <TArena extends Arena, TTeam extends Team> extends Gamer {
 					.onInteract((p, b) -> {
 						SimpleForm form = Form.simple();
 
-						((List<MGGamer>)arena().gamers()).forEach(gamer -> {
+						((List<MGGamer>)spectator.arena.gamers()).forEach(gamer -> {
 							form.button(gamer.name(), player -> {
-								if (spectator != null && gamer.arena() == spectator.arena) {
+								if (spectator != null && gamer.arena() == spectator.arena && spectator.arena.state() == ArenaState.GAME) {
 									teleport(gamer);
 								}
 							});

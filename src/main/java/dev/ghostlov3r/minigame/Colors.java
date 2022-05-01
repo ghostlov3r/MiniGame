@@ -1,7 +1,7 @@
 package dev.ghostlov3r.minigame;
 
-import dev.ghostlov3r.beengine.block.utils.DyeColor;
-import dev.ghostlov3r.beengine.utils.TextFormat;
+import beengine.block.utils.DyeColor;
+import beengine.util.TextFormat;
 import lombok.experimental.UtilityClass;
 
 import java.util.List;

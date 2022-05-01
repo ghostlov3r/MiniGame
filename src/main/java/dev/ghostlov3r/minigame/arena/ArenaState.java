@@ -1,6 +1,6 @@
 package dev.ghostlov3r.minigame.arena;
 
-import dev.ghostlov3r.common.Utils;
+import beengine.util.Utils;
 import dev.ghostlov3r.minigame.MiniGameConfig;
 import lombok.Getter;
 import lombok.Setter;

@@ -1,23 +1,22 @@
 package dev.ghostlov3r.minigame;
 
-import dev.ghostlov3r.beengine.Server;
-import dev.ghostlov3r.beengine.block.utils.DyeColor;
-import dev.ghostlov3r.beengine.form.CustomForm;
-import dev.ghostlov3r.beengine.form.Form;
-import dev.ghostlov3r.beengine.form.element.Element;
-import dev.ghostlov3r.beengine.form.element.ElementToggle;
-import dev.ghostlov3r.beengine.item.Items;
-import dev.ghostlov3r.beengine.player.GameMode;
-import dev.ghostlov3r.beengine.scheduler.Scheduler;
-import dev.ghostlov3r.beengine.utils.TextFormat;
-import dev.ghostlov3r.beengine.world.World;
+import beengine.Server;
+import beengine.block.utils.DyeColor;
+import beengine.form.CustomForm;
+import beengine.form.Form;
+import beengine.form.element.Element;
+import beengine.form.element.ElementToggle;
+import beengine.item.Items;
+import beengine.player.GameMode;
+import beengine.scheduler.Scheduler;
+import beengine.util.TextFormat;
+import beengine.world.World;
 import dev.ghostlov3r.minigame.data.ArenaType;
 import dev.ghostlov3r.minigame.data.GameMap;
 import dev.ghostlov3r.minigame.data.MapTeam;
 import dev.ghostlov3r.minigame.data.WeakLocation;
-import it.unimi.dsi.fastutil.objects.ReferenceOpenHashSet;
+import fastutil.set.impl.RefHashSet;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
@@ -28,7 +27,7 @@ public class Wizard<TGameMap extends GameMap, TMapTeam extends MapTeam> {
 	protected World world;
 	protected MGGamer gamer;
 	protected TGameMap map;
-	protected Set<ArenaType> types = new ReferenceOpenHashSet<>();
+	protected Set<ArenaType> types = new RefHashSet<>();
 
 	public Wizard (MGGamer creator) {
 		gamer = creator;
@@ -141,6 +140,8 @@ public class Wizard<TGameMap extends GameMap, TMapTeam extends MapTeam> {
 			map.save();
 			gamer.teleport(World.defaultWorld().getSpawnPosition(), () -> {
 				gamer.sendMessage(TextFormat.GREEN+"Арена успешно создана и готова к игре!");
+				world.save();
+				world.setAutoSave(false);
 				World.unload(world);
 				gamer.manager.updateTypes();
 				gamer.invUpdater.onLobbyJoin();

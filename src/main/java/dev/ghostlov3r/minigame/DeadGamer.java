@@ -1,9 +1,9 @@
 package dev.ghostlov3r.minigame;
 
-import dev.ghostlov3r.beengine.entity.util.Location;
-import dev.ghostlov3r.beengine.scheduler.Scheduler;
-import dev.ghostlov3r.beengine.utils.TextFormat;
-import dev.ghostlov3r.minecraft.data.entity.EntityDataFlag2;
+import beengine.entity.util.Location;
+import beengine.minecraft.data.entity.EntityDataFlag2;
+import beengine.scheduler.Scheduler;
+import beengine.util.TextFormat;
 import lord.core.util.LordNpc;
 
 public class DeadGamer extends LordNpc {

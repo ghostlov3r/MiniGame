@@ -1,8 +1,8 @@
 package dev.ghostlov3r.minigame.data;
 
-import dev.ghostlov3r.beengine.utils.DiskEntry;
-import dev.ghostlov3r.beengine.utils.DiskMap;
-import dev.ghostlov3r.math.Vector3;
+import beengine.util.DiskEntry;
+import beengine.util.DiskMap;
+import beengine.util.math.Vector3;
 import lombok.Getter;
 import lombok.experimental.Accessors;
 

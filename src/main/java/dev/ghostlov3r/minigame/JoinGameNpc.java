@@ -1,19 +1,19 @@
 package dev.ghostlov3r.minigame;
 
-import dev.ghostlov3r.beengine.Server;
-import dev.ghostlov3r.beengine.entity.util.Location;
-import dev.ghostlov3r.beengine.form.CustomForm;
-import dev.ghostlov3r.beengine.form.Form;
-import dev.ghostlov3r.beengine.form.element.Element;
-import dev.ghostlov3r.beengine.form.element.ElementToggle;
-import dev.ghostlov3r.beengine.utils.DiskEntry;
-import dev.ghostlov3r.beengine.utils.TextFormat;
-import dev.ghostlov3r.minecraft.data.skin.SkinData;
+import beengine.Server;
+import beengine.entity.util.Location;
+import beengine.form.CustomForm;
+import beengine.form.Form;
+import beengine.form.element.Element;
+import beengine.form.element.ElementToggle;
+import beengine.minecraft.data.skin.SkinData;
+import beengine.nbt.NbtMap;
+import beengine.nbt.NbtType;
+import beengine.util.DiskEntry;
+import beengine.util.TextFormat;
 import dev.ghostlov3r.minigame.arena.Arena;
 import dev.ghostlov3r.minigame.data.ArenaType;
-import dev.ghostlov3r.nbt.NbtMap;
-import dev.ghostlov3r.nbt.NbtType;
-import it.unimi.dsi.fastutil.objects.ReferenceOpenHashSet;
+import fastutil.set.impl.RefHashSet;
 import lord.core.gamer.Gamer;
 import lord.core.util.LordNpc;
 
@@ -25,7 +25,7 @@ public class JoinGameNpc extends LordNpc {
 
 	protected static final int UPDATE_PERIOD = 20 * 8;
 
-	public Set<ArenaType> arenaTypes = new ReferenceOpenHashSet<>();
+	public Set<ArenaType> arenaTypes = new RefHashSet<>();
 	public String modeName = "";
 	protected int tagUpdateCounter;
 
